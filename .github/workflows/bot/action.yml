@@ -1,0 +1,5 @@
+name: 'Bot'
+description: 'A bot serving Sweekt distribution'
+runs:
+  main: 'dist/index.js'
+  using: node16
