@@ -12,11 +12,14 @@ import com.meowool.sweekt.gradle.module.ContextModule
 import com.meowool.sweekt.gradle.module.JobModule
 import com.meowool.sweekt.gradle.module.NetworkModule
 import com.meowool.sweekt.gradle.module.ServiceModule
+import com.meowool.sweekt.gradle.utils.debug
 import com.meowool.sweekt.gradle.utils.envOrNull
 import com.meowool.sweekt.gradle.utils.runAction
 import org.koin.core.context.startKoin
 
 suspend fun main() = runAction {
+  debug("workingDir = ${System.getProperty("user.dir")}")
+
   // Inject dependencies
   startKoin {
     modules(

@@ -1,7 +1,5 @@
 package com.meowool.sweekt.gradle.job
 
-import actions.core.error
-import actions.core.warning
 import com.meowool.sweekt.gradle.model.BotIssue
 import com.meowool.sweekt.gradle.model.BotIssueBodyTemplate.Companion.createBotIssueBodyTemplate
 import com.meowool.sweekt.gradle.model.GithubRelease
@@ -12,10 +10,12 @@ import com.meowool.sweekt.gradle.service.BotService
 import com.meowool.sweekt.gradle.service.GitService
 import com.meowool.sweekt.gradle.service.GithubRepositoryService
 import com.meowool.sweekt.gradle.service.GradleService
-import com.meowool.sweekt.gradle.utils.div
+import com.meowool.sweekt.gradle.utils.error
 import com.meowool.sweekt.gradle.utils.info
 import com.meowool.sweekt.gradle.utils.retry
+import com.meowool.sweekt.gradle.utils.warning
 import com.meowool.sweekt.gradle.utils.withDebug
+import kotlin.io.path.div
 
 /**
  * @author chachako
@@ -29,7 +29,9 @@ class ReleaseDistributionJob(
 
   override suspend fun start(input: BotJobData): BotJobResult {
     val version = gradle.calculateVersion()
-    val latestRelease = repository.latestRelease()
+    val latestRelease = requireNotNull(repository.latestRelease()) {
+      "The latest release of Github repository is `null`."
+    }
     // We only release branches with the latest version of changes
     if (version.baseVersion.sweekt == latestRelease.tag.toIntVersion()) {
       if (test(version, latestRelease)) release(version, latestRelease)
@@ -98,7 +100,6 @@ class ReleaseDistributionJob(
   /**
    * Release all zip files of our distribution.
    */
-  @Suppress("ktlint:max-line-length", "ktlint:argument-list-wrapping")
   private suspend fun release(
     version: GradleVersion,
     latestRelease: GithubRelease,

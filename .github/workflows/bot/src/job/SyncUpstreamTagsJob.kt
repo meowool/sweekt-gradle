@@ -6,17 +6,17 @@ import com.meowool.sweekt.gradle.service.BotService.Companion.ChangedPrefix
 import com.meowool.sweekt.gradle.service.BotService.Companion.UnchangedPrefix
 import com.meowool.sweekt.gradle.service.GitService
 import com.meowool.sweekt.gradle.service.GithubRepositoryService
-import com.meowool.sweekt.gradle.utils.copyDirectory
-import com.meowool.sweekt.gradle.utils.div
+import com.meowool.sweekt.gradle.utils.copyToRecursively
 import com.meowool.sweekt.gradle.utils.info
 import com.meowool.sweekt.gradle.utils.onSuccess
-import com.meowool.sweekt.gradle.utils.temporaryDirectory
 import kotlinx.coroutines.flow.onEmpty
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.toList
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
+import kotlin.io.path.Path
+import kotlin.io.path.createTempDirectory
 
 /**
  * @author chachako
@@ -35,11 +35,11 @@ class SyncUpstreamTagsJob(
   override suspend fun start(input: BotJobData): BotJobResult {
     val upstreamTags = upstreamRepo.tags
     val currentBranches = currentRepo.branches.toList()
-    val tempGithubDirectory = temporaryDirectory / ".github"
+    val tempGithubDirectory = createTempDirectory()
 
     upstreamTags.onStart {
       // Save ".github" directory
-      copyDirectory(".github", tempGithubDirectory)
+      Path(".github").copyToRecursively(tempGithubDirectory)
       // Add upstream remote
       git.addRemote("upstream", upstreamContext.repositoryUrl)
     }.onEmpty {
@@ -57,8 +57,8 @@ class SyncUpstreamTagsJob(
         it.name == tagBranch ||
           // We must also consider the merged or failed branches,
           // which are also checked out
-          it.name == "$ChangedPrefix/$upstreamTag" ||
-          it.name == "$UnchangedPrefix/$upstreamTag"
+          it.name == "$ChangedPrefix$upstreamTag" ||
+          it.name == "$UnchangedPrefix$upstreamTag"
       }
       if (isNew && isStable && !isCheckedOut) {
         val fetchedTag = "fetched-$upstreamTag"
@@ -74,11 +74,11 @@ class SyncUpstreamTagsJob(
         )
         // Add the ".github" directory, otherwise subsequent workflows
         // will not be triggered
-        copyDirectory(tempGithubDirectory, ".github")
+        tempGithubDirectory.copyToRecursively(Path(".github"))
         git.commit(
           path = ".github",
           message = "feat(ci): add workflows for auto syncing upstream",
-          description = "See [README]($repositoryUrl/blob/-/.github/workflows/bot/readme.md) for more details.", // ktlint-disable max-line-length
+          description = "See [README]($repositoryUrl/blob/-/.github/workflows/bot/readme.md) for more details.",
         ).push(skipCI = false)
       } else if (isCheckedOut) {
         info("💫 Skip tag '$upstreamTag' (already checked out).")

@@ -1,5 +1,7 @@
 package com.meowool.sweekt.gradle.model
 
+import kotlin.io.path.Path
+
 /**
  * @author chachako
  */
@@ -14,6 +16,8 @@ enum class GradleDistribution {
   override fun toString() = name.lowercase()
 
   companion object {
-    const val BuildDirectory = "subprojects/distributions-full/build/distributions" // ktlint-disable max-line-length
+    val BuildDirectory = Path(
+      "subprojects/distributions-full/build/distributions"
+    )
   }
 }

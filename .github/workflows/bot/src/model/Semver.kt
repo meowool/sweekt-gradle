@@ -1,18 +1,19 @@
 package com.meowool.sweekt.gradle.model
 
-import semverCompare
-import semverValid
+import io.github.z4kn4fein.semver.Version
+import io.github.z4kn4fein.semver.toVersionOrNull
 
 /**
  * @author chachako
  */
-value class Semver(private val version: String) : Comparable<Semver> {
-  constructor(version: Any) : this(version.toString())
+@JvmInline
+value class Semver(private val str: String) : Comparable<Semver> {
+  private val version: Version
+    get() = str.toVersionOrNull(strict = false) ?: Version.min
 
-  override fun compareTo(other: Semver): Int =
-    semverCompare(validVersion(), other.version)
+  constructor(str: Any) : this(str.toString())
 
-  override fun toString(): String = "v" + validVersion()
+  override fun compareTo(other: Semver): Int = version.compareTo(other.version)
 
-  private fun validVersion() = semverValid(version) ?: "0.0.0"
+  override fun toString(): String = "v$version"
 }

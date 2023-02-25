@@ -3,6 +3,7 @@ package com.meowool.sweekt.gradle.model
 /**
  * @author chachako
  */
+@JvmInline
 value class IntVersion(val number: Int) {
   constructor(version: String) : this(version.removePrefix("v").toInt())
 

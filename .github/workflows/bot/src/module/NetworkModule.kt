@@ -1,13 +1,15 @@
 package com.meowool.sweekt.gradle.module
 
-import actions.core.isDebug
+import com.github.ajalt.mordant.rendering.TextColors.gray
 import com.meowool.sweekt.gradle.model.Context
 import com.meowool.sweekt.gradle.service.GithubRepositoryService
+import com.meowool.sweekt.gradle.utils.isDebug
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.js.Js
+import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
+import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
 import io.ktor.client.request.header
 import io.ktor.serialization.kotlinx.json.DefaultJson
@@ -24,8 +26,11 @@ val NetworkModule get() = module {
     }
   }
   factory {
-    HttpClient(Js) {
+    HttpClient(OkHttp) {
       install(Logging) {
+        logger = object : Logger {
+          override fun log(message: String) = println(gray(message))
+        }
         level = if (isDebug()) LogLevel.BODY else LogLevel.INFO
       }
       install(ContentNegotiation) {

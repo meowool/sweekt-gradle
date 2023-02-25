@@ -1,14 +1,18 @@
-import org.jetbrains.kotlin.gradle.dsl.KotlinJsCompile
-import org.jetbrains.kotlin.gradle.targets.js.yarn.yarn
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
+val keepDependencies = arrayOf(
+  "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+)
 
 val ktlint = configurations.detachedConfiguration(
   dependencies.create("com.pinterest:ktlint:0.48.2"),
 )
 
 plugins {
-  fun kt(name: String) = kotlin(name) version "1.8.0"
-  kt("js")
-  kt("plugin.serialization")
+  arrayOf("jvm", "plugin.serialization").forEach {
+    kotlin(it) version "1.8.20-Beta"
+  }
+  id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
 dependencies {
@@ -16,33 +20,25 @@ dependencies {
   implementationOf(
     platform("io.ktor:ktor-bom:2.2.2"),
 
-    npm("@actions/core", "^1"),
-    npm("@actions/exec", "^1"),
-    npm("string_decoder", "^1"),
-    npm("ansi-colors", "^4"),
-    npm("semver", "^7"),
-
-    "io.ktor:ktor-client-js",
-    "io.ktor:ktor-client-logging-js",
+    "io.ktor:ktor-client",
+    "io.ktor:ktor-client-okhttp",
+    "io.ktor:ktor-client-logging",
     "io.ktor:ktor-client-content-negotiation",
     "io.ktor:ktor-serialization-kotlinx-json",
-
-    "org.jetbrains.kotlin-wrappers:kotlin-node:18.11.17-+",
+    "io.insert-koin:koin-core:3.3.2",
+    "io.github.z4kn4fein:semver:1.4.2",
+    "com.github.ajalt.mordant:mordant:2.0.0-beta11",
     "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.4",
 
-    "io.insert-koin:koin-core:3.3.2",
+    *keepDependencies,
   )
 }
 
 kotlin {
-  js {
-    nodejs()
-    useCommonJs()
-    binaries.executable()
-  }
   sourceSets.main {
     kotlin.srcDir("src")
   }
+  jvmToolchain(11)
 }
 
 tasks {
@@ -61,27 +57,18 @@ tasks {
     doFirst { println("Linting & formatting...") }
   }
 
-  withType<KotlinJsCompile> {
-    dependsOn(ktlint)
-  }
+  withType<KotlinJvmCompile> { dependsOn(ktlint) }
 
-  build {
-    val directory = buildDir.resolve("js/packages/${project.name}")
-
-    doLast {
-      directory.walk().filter { it.extension == "js" }.forEach { file ->
-        val content = file.readText()
-        if (content.contains("eval('require')")) {
-          println("Fixing '${file.absolutePath}'")
-          file.writeText(content.replace("eval('require')", "require"))
-        }
-      }
-      exec {
-        workingDir(directory)
-        commandLine("npx", "ncc", "build", "-o", file("dist").absolutePath)
+  shadowJar {
+    archiveVersion.set("")
+    archiveClassifier.set("")
+    archiveFileName.set("dist.jar")
+    destinationDirectory.set(projectDir)
+    manifest.attributes["Main-Class"] = "com.meowool.sweekt.gradle.MainKt"
+    minimize {
+      keepDependencies.forEach {
+        exclude(dependency(it))
       }
     }
   }
 }
-
-yarn.lockFileDirectory = projectDir

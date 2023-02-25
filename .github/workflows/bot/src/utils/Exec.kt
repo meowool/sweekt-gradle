@@ -2,81 +2,83 @@
 
 package com.meowool.sweekt.gradle.utils
 
-import StringDecoder
-import actions.exec.ExecListeners
-import actions.exec.ExecOptions
-import actions.exec.ExecOutput
-import actions.exec.exec
-import kotlinx.coroutines.await
-import node.buffer.Buffer
+import com.github.ajalt.mordant.rendering.TextColors.brightBlue
+import com.github.ajalt.mordant.rendering.TextColors.brightYellow
+import com.github.ajalt.mordant.rendering.TextColors.cyan
+import com.github.ajalt.mordant.rendering.TextColors.yellow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.withContext
+import java.io.InputStream
+import java.io.PrintStream
 
-private class ExecOutputImpl(
-  override var exitCode: Number,
-  override var stdout: String,
-  override var stderr: String,
-) : ExecOutput
+data class ExecOutput(
+  val exitCode: Int,
+  val stdout: String,
+  val stderr: String,
+)
 
 class ExecException(
-  cause: Throwable,
-  commandLine: String,
-  args: Array<String>?,
-  var exitCode: Number? = null,
+  val command: List<String>,
+  val exitCode: Int,
   val stdout: String? = null,
   val stderr: String? = null,
-) : IllegalStateException(cause) {
-  val statement = commandLine + args?.joinToString(
-    separator = " ",
-    prefix = " ",
-  ).orEmpty()
-
+) : IllegalStateException(buildString {
+  append("Failed to execute command: ")
+  appendLine(brightBlue(command.joinToString(separator = " ", prefix = "$ ")))
+  appendLine()
+  append(brightYellow("Exit code: "))
+  appendLine(brightYellow(exitCode.toString()))
+  stdout?.apply {
+    appendLine()
+    appendLine(brightYellow("Standard error: "))
+    appendLine(lines().joinToString("\n") { yellow(it) })
+  }
+}) {
   val log: String? = listOfNotNull(stdout, stderr)
     .joinToString("\n").trim()
     .takeIf { it.isNotBlank() }
 }
 
-suspend fun exec(
-  commandLine: String,
-  vararg args: Any?,
-): ExecOutput {
-  val arguments = args.takeIf { it.isNotEmpty() }
-    ?.mapNotNull { it?.toString() }
-    ?.toTypedArray()
+@Suppress("BlockingMethodInNonBlockingContext")
+suspend fun exec(vararg command: Any?): ExecOutput = withContext(IO) {
+  coroutineScope {
+    fun InputStream.printToString(printStream: PrintStream) = bufferedReader()
+      .lineSequence().onEach(printStream::println).joinToString("\n")
 
-  var stdout = ""
-  var stderr = ""
-  val stdoutDecoder = StringDecoder("utf8")
-  val stderrDecoder = StringDecoder("utf8")
-  val options = object : ExecOptions {
-    override var listeners: ExecListeners? = object : ExecListeners {
-      override var stdout = fun(data: Buffer) {
-        stdout += stdoutDecoder.write(data)
-      }
-      override var stderr = fun(data: Buffer) {
-        stderr += stderrDecoder.write(data)
-      }
-    }
-  }
+    val commandList = command.mapNotNull { it?.toString() }
 
-  try {
-    val exitCode = try {
-      when (arguments) {
-        null -> exec(commandLine, options = options)
-        else -> exec(commandLine, arguments, options)
-      }.await()
-    } finally {
-      // Flush any remaining characters
-      stdout += stdoutDecoder.end()
-      stderr += stderrDecoder.end()
+    val process = ProcessBuilder(commandList).start()
+
+    println(cyan(commandList.joinToString(" ")))
+
+    try {
+      val stdout = async { process.inputStream.printToString(System.out) }
+      val stderr = async { process.errorStream.printToString(System.err) }
+      val exitCode = runInterruptible { process.waitFor() }
+
+      val stdoutString = stdout.await()
+      val stderrString = stderr.await()
+
+      if (exitCode != 0) throw ExecException(
+        command = commandList,
+        exitCode = exitCode,
+        stdout = stdoutString,
+        stderr = stderrString,
+      )
+
+      ExecOutput(
+        exitCode = exitCode,
+        stdout = stdoutString,
+        stderr = stderrString,
+      )
+    } catch (e: CancellationException) {
+      process.destroy()
+      throw e
     }
-    return ExecOutputImpl(exitCode, stdout, stderr)
-  } catch (e: Throwable) {
-    throw ExecException(
-      cause = e,
-      commandLine = commandLine,
-      args = arguments,
-      stdout = stdout,
-      stderr = stderr,
-    )
   }
 }
 

@@ -7,8 +7,8 @@ import com.meowool.sweekt.gradle.service.GithubRepositoryService
 import com.meowool.sweekt.gradle.service.GradleService
 import com.meowool.sweekt.gradle.service.GradleService.Companion.VersionFile
 import com.meowool.sweekt.gradle.utils.info
-import com.meowool.sweekt.gradle.utils.writeFile
 import kotlinx.coroutines.flow.toList
+import kotlin.io.path.writeText
 
 /**
  * @author chachako
@@ -20,7 +20,6 @@ class BumpVersionFileJob(
   private val repo: GithubRepositoryService,
 ) : BotJob() {
 
-  @Suppress("ktlint:max-line-length", "ktlint:argument-list-wrapping")
   override suspend fun start(input: BotJobData): BotJobResult {
     // There are two situations for this job, one is triggered when
     // the branch is pushed, and the other is triggered when the release
@@ -34,14 +33,12 @@ class BumpVersionFileJob(
       // This means that the new release creates
       null -> {
         val tag = workflowTriggerRef.shortName
-        require(workflowTriggerRef.isTag) {
-          "The trigger ref must be a tag: `$tag`."
-        }
+        require(workflowTriggerRef.isTag) { "The trigger ref must be a tag: `$tag`." }
         info("🆕 Release '$tag' is created, bumping version for 'changed/*' branches...")
         Pair(bot.changedBranches.toList(), tag)
       }
       // This means that the branches pushes
-      else -> Pair(branches, repo.latestRelease().tag)
+      else -> Pair(branches, repo.latestRelease()?.tag ?: return jobSuccess())
     }
 
     branches.forEach { bumpVersion(it, tag) }
@@ -62,7 +59,7 @@ class BumpVersionFileJob(
       )
 
       // Update the version file
-      VersionFile.writeFile(newVersion.baseVersion.toSweekt())
+      VersionFile.writeText(newVersion.baseVersion.toSweekt())
       git.commit(
         path = VersionFile,
         message = "release: ${newVersion.fullSweektVersion}"

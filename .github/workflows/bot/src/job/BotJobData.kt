@@ -1,11 +1,14 @@
 package com.meowool.sweekt.gradle.job
 
+import com.meowool.sweekt.gradle.utils.castOrNull
+
 /**
  * A persistable set of key/value pairs which are used as inputs and
  * outputs for [BotJob].
  *
  * @author chachako
  */
+@JvmInline
 value class BotJobData(private val map: Map<Key<*>, Any?>) {
   /**
    * Returns the value of [T] type corresponding to the given [key],
@@ -18,7 +21,7 @@ value class BotJobData(private val map: Map<Key<*>, Any?>) {
    * Returns the value of [T] type corresponding to the given [key],
    * or `null` if such a key is not present in the map.
    */
-  fun <T> getOrNull(key: Key<T>): T? = map[key]?.unsafeCast<T>()
+  fun <T> getOrNull(key: Key<T>): T? = map[key]?.castOrNull<T>()
 
   /**
    * Returns a new [BotJobData] object which is a combination of this.
@@ -35,6 +38,7 @@ value class BotJobData(private val map: Map<Key<*>, Any?>) {
    * Key for values stored in [BotJobData.map]. Type [T] is the type of
    * the value associated with the Key.
    */
+  @JvmInline
   value class Key<T>(val name: String)
 }
 

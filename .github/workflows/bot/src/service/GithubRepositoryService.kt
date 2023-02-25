@@ -8,10 +8,9 @@ import com.meowool.sweekt.gradle.model.GithubCommitsComparison
 import com.meowool.sweekt.gradle.model.GithubIssue
 import com.meowool.sweekt.gradle.model.GithubRelease
 import com.meowool.sweekt.gradle.model.GithubRepository
+import com.meowool.sweekt.gradle.utils.castOrNull
 import com.meowool.sweekt.gradle.utils.githubFlatPaginate
 import com.meowool.sweekt.gradle.utils.jsonMapOf
-import com.meowool.sweekt.gradle.utils.nodeFetch
-import com.meowool.sweekt.gradle.utils.readFileBuffer
 import com.meowool.sweekt.gradle.utils.withDebug
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -22,14 +21,13 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.ContentType.Application
-import io.ktor.http.HttpHeaders.ContentType
 import io.ktor.http.contentType
-import kotlinx.coroutines.await
+import io.ktor.util.cio.readChannel
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import java.nio.file.Path
 
 /**
  * @author chachako
@@ -39,10 +37,8 @@ class GithubRepositoryService(
   private val client: HttpClient,
   private val json: Json,
 ) {
-  private val baseUrl = context.run {
-    "$githubApiUrl/repos/$repositoryWithOwner"
-  } // ktlint-disable max-line-length
-  private var paginateRequests = mutableMapOf<String, dynamic>()
+  private val baseUrl = context.run { "$githubApiUrl/repos/$repositoryWithOwner" }
+  private var paginateRequests = mutableMapOf<String, Any?>()
   private var info: GithubRepository? = null
   private var latestRelease: GithubRelease? = null
 
@@ -147,10 +143,12 @@ class GithubRepositoryService(
   }
 
   suspend fun latestRelease() = withDebug("latestRelease") {
-    latestRelease ?: client
-      .get("$baseUrl/releases/latest")
-      .body<GithubRelease>()
-      .also { latestRelease = it }
+    runCatching {
+      latestRelease ?: client
+        .get("$baseUrl/releases/latest")
+        .body<GithubRelease>()
+        .also { latestRelease = it }
+    }.getOrNull()
   }
 
   suspend fun release(tag: String) = withDebug("release") {
@@ -160,25 +158,14 @@ class GithubRepositoryService(
   suspend fun uploadReleaseAsset(
     release: GithubRelease,
     name: String,
-    file: String,
+    file: Path,
     contentType: ContentType = Application.Zip,
   ): GithubRelease.Asset = withDebug("uploadReleaseAsset") {
-    val response = nodeFetch(
-      url = release.uploadUrl.removeSuffix("{?name,label}") + "?name=$name",
-      body = file.readFileBuffer(),
-      headers = context.headers + (ContentType to contentType.toString()),
-      method = "POST",
-    ).text().await()
-    return try {
-      json.decodeFromString(response)
-    } catch (e: Throwable) {
-      error(
-        buildString {
-          appendLine("Failed to upload release asset: $response")
-          appendLine(e.stackTraceToString())
-        },
-      )
-    }
+    client.post(release.uploadUrl.removeSuffix("{?name,label}")) {
+      parameter("name", name)
+      contentType(contentType)
+      setBody(file.readChannel())
+    }.body()
   }
 
   private suspend fun info() = withDebug("info") {
@@ -191,7 +178,7 @@ class GithubRepositoryService(
     paths: String,
     crossinline block: HttpRequestBuilder.() -> Unit = {},
   ) = paginateRequests[paths]
-    ?.unsafeCast<List<T>>()
+    ?.castOrNull<List<T>>()
     ?.asFlow() ?: mutableListOf<T>().let { result ->
     client.githubFlatPaginate<T>("$baseUrl/$paths", json, block)
       .onEach { result += it }

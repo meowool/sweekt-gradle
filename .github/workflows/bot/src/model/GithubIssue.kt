@@ -46,5 +46,7 @@ data class GithubIssue(
   }
 
   @Serializable
-  class Label(val name: String)
+  class Label(val name: String) {
+    override fun toString(): String = name
+  }
 }

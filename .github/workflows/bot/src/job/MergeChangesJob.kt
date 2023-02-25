@@ -9,6 +9,7 @@ import com.meowool.sweekt.gradle.service.GitService
 import com.meowool.sweekt.gradle.service.GithubRepositoryService
 import com.meowool.sweekt.gradle.utils.debug
 import com.meowool.sweekt.gradle.utils.info
+import com.meowool.sweekt.gradle.utils.warning
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.toList
 import com.meowool.sweekt.gradle.service.GradleService.Companion.RepositoryUrl as GradleRepositoryUrl
@@ -69,14 +70,14 @@ class MergeChangesJob(
 
   /**
    * This method will be called when the 'changed/_' branch is triggered.
-   * In this case, we need to merge the "defaultBranch" into the
+   * In this case, we need to merge other 'changed/_' branches into the
    * [triggeredBranch].
    */
   private suspend fun triggeredByChangedBranch(
     triggeredBranch: GithubBranch,
   ): BotJobResult = debug("triggeredByChangedBranch($triggeredBranch)") {
     val result = bot.mergeChanges(
-      fromBranches = repository.defaultBranch(),
+      fromBranches = bot.changedBranches.filter { it != triggeredBranch },
       toBranches = triggeredBranch,
       onSuccess = ::onSuccessfulMerge,
       onFail = { onFailedMerge(it) },
@@ -89,7 +90,7 @@ class MergeChangesJob(
   }
 
   private suspend fun BotIssueBodyTemplate.onFailedMerge(failedBranch: Any) {
-    info("🧨 Failed to merge changes to `$failedBranch` branch.")
+    warning("🧨 Failed to merge changes to `$failedBranch` branch.")
 
     // Rename the branch that failed to merge
     val defaultBranch = repository.defaultBranch()
@@ -122,7 +123,7 @@ class MergeChangesJob(
     }
 
     bot.createIssue(
-      title = "Cannot merge Sweekt distribution changes to `$failedBranch` branch", // ktlint-disable max-line-length
+      title = "Cannot merge Sweekt distribution changes to `$failedBranch` branch",
       body = issueBody,
       labels = listOf(BotIssue.MergeLabel),
     )

@@ -1,7 +1,6 @@
 package com.meowool.sweekt.gradle.service
 
-import actions.core.debug
-import actions.core.warning
+import com.github.ajalt.mordant.rendering.TextColors.green
 import com.meowool.sweekt.gradle.model.BotIssue
 import com.meowool.sweekt.gradle.model.BotIssueBodyTemplate
 import com.meowool.sweekt.gradle.model.BotIssueBodyTemplate.Companion.createBotIssueBodyTemplate
@@ -10,9 +9,12 @@ import com.meowool.sweekt.gradle.model.GithubBranch
 import com.meowool.sweekt.gradle.model.GithubIssue
 import com.meowool.sweekt.gradle.model.MergeChangesResult
 import com.meowool.sweekt.gradle.model.Semver
+import com.meowool.sweekt.gradle.utils.debug
 import com.meowool.sweekt.gradle.utils.group
+import com.meowool.sweekt.gradle.utils.ifNull
 import com.meowool.sweekt.gradle.utils.info
 import com.meowool.sweekt.gradle.utils.preserveFile
+import com.meowool.sweekt.gradle.utils.warning
 import com.meowool.sweekt.gradle.utils.withDebug
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
@@ -23,7 +25,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.toList
 import com.meowool.sweekt.gradle.service.GradleService.Companion.VersionFile as GradleVersionFile
 
@@ -43,11 +44,9 @@ class BotService(
   val changedBranches = flow {
     val defaultBranch = repository.defaultBranch()
     emit(defaultBranch)
-    emitAll(
-      repository.branches.filter {
-        it.name != defaultBranch.name && it.name.startsWith(ChangedPrefix)
-      },
-    )
+    emitAll(repository.branches.filter {
+      it.name != defaultBranch.name && it.name.startsWith(ChangedPrefix)
+    })
   }.onEach { debug("🫣 changedBranches.each: $it") }
 
   suspend fun createIssue(
@@ -105,14 +104,15 @@ class BotService(
     toFlow.collect { toBranch ->
       val errorReasons = mutableMapOf<String, Throwable>()
       val toVersion = parseBranchVersion(toBranch)
+
       val isSuccess = fromFlow.filter {
         // Make sure that the version of the 'fromBranch' is smaller than
         // the 'toBranch', otherwise we will mistakenly merge the high
         // version history to the lower version
         val isSmaller = parseBranchVersion(it) < toVersion
-        if (!isSmaller) info("🚫 Skip merge from '$it' because it's not smaller than the target '$toBranch'.") // ktlint-disable argument-list-wrapping max-line-length
+        if (!isSmaller) info("🚫 Skip merge from '$it' because it's not smaller than the target '$toBranch'.")
         isSmaller
-      }.takeWhile { fromBranch ->
+      }.firstOrNull { fromBranch ->
         group("🧪 Try to merge from '$fromBranch' into '$toBranch'") {
           runCatching {
             git.checkout(toBranch)
@@ -120,19 +120,31 @@ class BotService(
               git.mergeFrom(fromBranch)
             }
             if (versionChanged) {
-              git.commit(GradleVersionFile, "revert `$GradleVersionFile`")
+              git.lastCommitOf(GradleVersionFile)?.let { (subject, commit) ->
+                git.commit(
+                  path = GradleVersionFile,
+                  message = "revert: \"$subject\"",
+                  footers = mapOf("Reverts-commit" to commit),
+                )
+              }.ifNull {
+                git.commit(
+                  path = GradleVersionFile,
+                  message = "revert `$GradleVersionFile`",
+                )
+                warning("🚨 Cannot find the last commit of '$GradleVersionFile'.")
+              }
             }
           }.onSuccess {
-            info("✅ Merge from '$fromBranch' into '$toBranch' successfully!")
+            println(green("✅ Merge from '$fromBranch' into '$toBranch' successfully!"))
             successBranches += toBranch
             onSuccess(toBranch)
           }.onFailure {
             git.abortMerge()
             errorReasons["Merge from `$fromBranch`"] = it
-            warning("💣 Skip merge from '$fromBranch' because it failed: $it")
+            warning("💣 Skip merge from '$fromBranch' because it failed:\n${it.message}")
           }.isSuccess // Stop merging once the merge is successful
         }
-      }.firstOrNull() != null
+      } != null
 
       if (!isSuccess) {
         failedBranches += toBranch
@@ -163,11 +175,9 @@ class BotService(
     openIssues.filter {
       it.related == related && it.labels.containsAll(labels.toList())
     }.toList().apply {
-      if (isNotEmpty()) {
-        info(
-          "🔗 Issues ${joinToString { it.url }} are related to $related",
-        )
-      }
+      if (isNotEmpty()) info(
+        "🔗 Issues ${joinToString { it.url }} are related to $related",
+      )
     }
   }
 

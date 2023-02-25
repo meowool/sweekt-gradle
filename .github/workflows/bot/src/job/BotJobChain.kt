@@ -1,8 +1,7 @@
 package com.meowool.sweekt.gradle.job
 
-import AnsiColors.magentaBright
+import com.github.ajalt.mordant.rendering.TextColors.brightMagenta
 import com.meowool.sweekt.gradle.model.Context
-import com.meowool.sweekt.gradle.utils.log
 import kotlin.reflect.KClass
 import org.koin.core.context.GlobalContext.get as getKoin
 
@@ -56,14 +55,13 @@ class BotJobChain : Context.Delegate() {
     /**
      * Enqueues all jobs in the chain.
      */
-    @Suppress("ktlint:max-line-length", "ktlint:argument-list-wrapping")
     suspend fun enqueue() {
       jobs.fold(emptyJobData()) { input, job ->
-        log(magentaBright("*****************************************************"))
-        log(magentaBright("🌈 Starting '${job::class.simpleName}'..."))
+        println(brightMagenta("*****************************************************"))
+        println(brightMagenta("🌈 Starting '${job::class.simpleName}'..."))
         val result = job.start(input)
-        log(magentaBright("🌈 Finished '${job::class.simpleName}'"))
-        log(magentaBright("*****************************************************"))
+        println(brightMagenta("🌈 Finished '${job::class.simpleName}'"))
+        println(brightMagenta("*****************************************************"))
         when (result) {
           is BotJobResult.Success -> input + result.output
           is BotJobResult.Failure -> return

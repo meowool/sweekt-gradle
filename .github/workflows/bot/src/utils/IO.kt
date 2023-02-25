@@ -1,35 +1,16 @@
 package com.meowool.sweekt.gradle.utils
 
-import js.core.Record
-import js.core.set
-import node.buffer.BufferEncoding
-import node.fs.CopyOptions
-import node.fs.PathLike
-import node.fs.cp
-import node.fs.readFile
-import node.fs.realpathSync
-import node.fs.rename
-import node.fs.writeFile
-import node.os.tmpdir
-import node.path.path
+import java.nio.file.Path
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.copyToRecursively
+import kotlin.io.path.readBytes
+import kotlin.io.path.writeBytes
 
-val temporaryDirectory: String get() = realpathSync(tmpdir())
-
-operator fun PathLike.div(joinPath: String) = path.join(this, joinPath)
-
-suspend fun PathLike.readFile() = readFile(this, BufferEncoding.utf8)
-suspend fun PathLike.writeFile(text: String) = writeFile(this, text)
-suspend fun PathLike.renameTo(newPath: PathLike) = rename(this, newPath)
-suspend fun PathLike.readFileBuffer() = readFile(this)
-
-suspend fun copyDirectory(source: PathLike, destination: PathLike) =
-  debug("copyDirectory") {
-    cp(
-      source,
-      destination,
-      opts = Record { set("recursive", true) }.unsafeCast<CopyOptions>(),
-    )
-  }
+@OptIn(ExperimentalPathApi::class)
+fun Path.copyToRecursively(
+  target: Path,
+  overwrite: Boolean = true
+): Path = copyToRecursively(target, overwrite = overwrite, followLinks = true)
 
 /**
  * Executes the [action] and ensure that the [file] is not modified during
@@ -37,17 +18,20 @@ suspend fun copyDirectory(source: PathLike, destination: PathLike) =
  *
  * @return Return `true` if the [file] was modified while executing [action].
  */
-suspend inline fun preserveFile(
-  file: String,
-  action: (oldContent: String) -> Unit,
+inline fun preserveFile(
+  file: Path,
+  action: () -> Unit,
 ): Boolean {
-  val oldContent = file.readFile()
+  var modified = false
+  val oldContent = file.readBytes()
   try {
-    action(oldContent)
+    action()
   } finally {
-    val newContent = file.readFile()
-    val modified = oldContent != newContent
-    if (modified) file.writeFile(oldContent)
-    return modified
+    val newContent = file.readBytes()
+    if (!oldContent.contentEquals(newContent)) {
+      file.writeBytes(oldContent)
+      modified = true
+    }
   }
+  return modified
 }

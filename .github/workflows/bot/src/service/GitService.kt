@@ -2,17 +2,17 @@
 
 package com.meowool.sweekt.gradle.service
 
-import actions.core.isDebug
-import actions.core.warning
-import actions.exec.ExecOutput
 import com.meowool.sweekt.gradle.model.Context
 import com.meowool.sweekt.gradle.service.GradleService.Companion.VersionFile
 import com.meowool.sweekt.gradle.service.GradleService.Companion.WrapperPropFile
+import com.meowool.sweekt.gradle.utils.ExecOutput
 import com.meowool.sweekt.gradle.utils.exec
-import com.meowool.sweekt.gradle.utils.group
+import com.meowool.sweekt.gradle.utils.isDebug
 import com.meowool.sweekt.gradle.utils.retry
+import com.meowool.sweekt.gradle.utils.warning
 import com.meowool.sweekt.gradle.utils.withDebug
-import node.fs.writeFile
+import kotlin.io.path.Path
+import kotlin.io.path.writeText
 
 class GitService(private val context: Context) {
   private var initialized = false
@@ -29,8 +29,7 @@ class GitService(private val context: Context) {
     // We need to resolve some conflicts automatically,
     // because they are not important
     this("config", "--local", "merge.ours.driver", "true")
-    writeFile(
-      ".git/info/attributes",
+    Path(".git/info/attributes").writeText(
       """
         .idea/**/* merge=ours
         .github/**/* merge=theirs
@@ -41,7 +40,7 @@ class GitService(private val context: Context) {
       """.trimIndent()
     )
 
-    if (isDebug()) group("🍀 Git config") { this("config", "--list") }
+    if (isDebug()) this("config", "--list")
   }
 
   /**
@@ -58,7 +57,7 @@ class GitService(private val context: Context) {
     try {
       action()
     } catch (e: Throwable) {
-      warning("⚠️ Unexpected: $e")
+      warning("💥️Unexpected: $e")
     }
   }
 
@@ -68,6 +67,13 @@ class GitService(private val context: Context) {
 
   suspend fun renameLocalBranch(newBranch: Any) = apply {
     this("branch", "-m", newBranch)
+  }
+
+  suspend fun lastCommitOf(file: Any) = withDebug("lastCommitOf($file)") {
+    this("log", "-n", 1, "--pretty=format:%s###%H", "--", file)
+      .stdout.trim().takeIf { it.isNotEmpty() }
+      ?.split("###")
+      ?.let { (subject, hash) -> subject to hash }
   }
 
   suspend fun renameRemoteBranch(newBranch: Any) = apply {
@@ -118,9 +124,10 @@ class GitService(private val context: Context) {
   }
 
   suspend fun commit(
-    path: String,
+    path: Any,
     message: String,
     description: String? = null,
+    footers: Map<String, String> = emptyMap(),
   ) = apply {
     this("add", path)
     this(
@@ -129,6 +136,7 @@ class GitService(private val context: Context) {
       buildString {
         appendLine(message); appendLine()
         description?.let { appendLine(it); appendLine() }
+        footers.forEach { (key, value) -> appendLine("$key: $value") }
         appendLine("Committed-by: ${context.workflowRunUrl}")
       },
     )

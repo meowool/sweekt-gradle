@@ -1,32 +1,33 @@
+@file:Suppress("NOTHING_TO_INLINE")
+
 package com.meowool.sweekt.gradle.utils
 
-import AnsiColors.yellowBright
-import actions.core.InputOptions
-import actions.core.endGroup
-import actions.core.error
-import actions.core.getInput
-import actions.core.setFailed
-import actions.core.startGroup
+import com.github.ajalt.mordant.rendering.TextColors.brightGreen
+import com.github.ajalt.mordant.rendering.TextColors.brightYellow
+import kotlin.system.exitProcess
 
-/**
- * Gets the value of an input.
- * Returns an empty string if the value is not defined.
- *
- * @param name Name of the input to get
- * @param required Whether the input is required. If required and not present, will throw.
- * @param trimWhitespace Whether leading/trailing whitespace will be trimmed for the input.
- */
-fun getInput(
-  name: String,
-  required: Boolean = false,
-  trimWhitespace: Boolean = true,
-): String = getInput(
-  name,
-  object : InputOptions {
-    override var required: Boolean? = required
-    override var trimWhitespace: Boolean? = trimWhitespace
-  },
-)
+private fun escapeData(data: String) = data
+  .replace("%", "%25")
+  .replace("\r", "%0D")
+  .replace("\n", "%0A")
+
+fun isDebug() = System.getenv("RUNNER_DEBUG") == "1"
+
+fun info(message: String) = println(brightGreen(message))
+
+fun debug(message: String) = println("::debug::${escapeData(message)}")
+
+fun <T> T.debug(name: String): T = also { debug(message = "$name: $it") }
+
+fun warning(message: String) = println("::warning::${escapeData(message)}")
+
+fun error(message: String) = println("::error::${escapeData(message)}")
+
+fun error(throwable: Throwable) = error(throwable.stackTraceToString())
+
+fun startGroup(name: String) = println("::group::${escapeData(name)}")
+
+fun endGroup() = println("::endgroup::")
 
 /**
  * Wrap an asynchronous function call in a group.
@@ -37,13 +38,13 @@ fun getInput(
  * @param action The function to wrap in the group
  */
 inline fun <T> group(name: String, action: () -> T): T {
-  log(yellowBright("------------------------------------------------"))
-  startGroup(yellowBright(name))
+  println(brightYellow("------------------------------------------------"))
+  startGroup(brightYellow(name))
   try {
     return action()
   } finally {
     endGroup()
-    log(yellowBright("------------------------------------------------"))
+    println(brightYellow("------------------------------------------------"))
   }
 }
 
@@ -51,9 +52,7 @@ inline fun runAction(action: () -> Unit) {
   try {
     action()
   } catch (e: Throwable) {
-    error(e.stackTraceToString())
-    setFailed(e)
+    error(e)
+    exitProcess(1)
   }
 }
-
-fun error(throwable: Throwable) = error(throwable.stackTraceToString())

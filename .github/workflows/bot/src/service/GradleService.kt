@@ -3,11 +3,12 @@ package com.meowool.sweekt.gradle.service
 import com.meowool.sweekt.gradle.model.GradleVersion
 import com.meowool.sweekt.gradle.utils.debug
 import com.meowool.sweekt.gradle.utils.exec
-import com.meowool.sweekt.gradle.utils.readFile
-import com.meowool.sweekt.gradle.utils.renameTo
 import com.meowool.sweekt.gradle.utils.retry
 import com.meowool.sweekt.gradle.utils.withDebug
-import com.meowool.sweekt.gradle.utils.writeFile
+import kotlin.io.path.Path
+import kotlin.io.path.moveTo
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 /**
  * @author chachako
@@ -36,15 +37,15 @@ class GradleService(private val git: GitService) {
     invoke("clean")
   }
 
-  suspend inline fun disableVerification(block: () -> Unit) {
-    val backup = "$VerificationMetadataFile.bak"
+  inline fun disableVerification(block: () -> Unit) {
+    val backup = Path("$VerificationMetadataFile.bak")
     // Disable Gradle dependency verification
-    VerificationMetadataFile.renameTo(backup)
+    VerificationMetadataFile.moveTo(backup)
     try {
       block()
     } finally {
       // Enable Gradle dependency verification
-      backup.renameTo(VerificationMetadataFile)
+      backup.moveTo(VerificationMetadataFile)
     }
   }
 
@@ -52,7 +53,7 @@ class GradleService(private val git: GitService) {
     fun String.replaceDistributionUrl(newUrl: String) =
       replace(DistributionUrlRegex, "$1$newUrl\$2")
 
-    val oldContent = WrapperPropFile.readFile()
+    val oldContent = WrapperPropFile.readText()
     // We only need to pin the snapshot distribution url
     if (oldContent.contains(SnapshotDistributionUrlPath)) {
       val fullVersion = calculateVersion().fullVersion
@@ -60,7 +61,7 @@ class GradleService(private val git: GitService) {
         "https\\://$DistributionUrlPath/gradle-$fullVersion-bin.zip",
       )
       if (oldContent != newContent) {
-        WrapperPropFile.writeFile(newContent)
+        WrapperPropFile.writeText(newContent)
         return fullVersion
       }
     }
@@ -93,8 +94,7 @@ class GradleService(private val git: GitService) {
    */
   private suspend fun parseBaseVersion(): GradleVersion.BasePart =
     withDebug("parseVersionFile") {
-      val content = VersionFile.readFile()
-      debug("versionFileContent: $content")
+      val content = VersionFile.readText().debug("versionFileContent")
       requireNotNull(
         BaseVersionRegex.find(content)?.run {
           GradleVersion.BasePart(
@@ -111,13 +111,13 @@ class GradleService(private val git: GitService) {
       }
     }
 
-  @Suppress("ktlint:max-line-length")
   companion object {
     const val RepositoryUrl = "https://github.com/gradle/gradle"
-    const val WrapperPropFile = "gradle/wrapper/gradle-wrapper.properties"
-    const val VersionFile = "version.txt"
-    const val VerificationMetadataFile = "gradle/verification-metadata.xml"
     const val ExecutableFile = "./gradlew"
+
+    val WrapperPropFile = Path("gradle/wrapper/gradle-wrapper.properties")
+    val VerificationMetadataFile = Path("gradle/verification-metadata.xml")
+    val VersionFile = Path("version.txt")
 
     private const val ServicesHost = "services.gradle.org"
     private const val DistributionUrlPath = "$ServicesHost/distributions"

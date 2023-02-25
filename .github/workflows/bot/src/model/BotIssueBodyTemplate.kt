@@ -54,7 +54,7 @@ class BotIssueBodyTemplate(val context: Context) {
   private fun parseError(error: Any?) = when (error) {
     is ExecException -> buildString {
       appendLine("```console")
-      append("$ ").appendLine(error.statement)
+      append("$ ").appendLine(error.command.joinToString(" "))
       appendLine().appendLine(error.log)
       appendLine("```")
     }

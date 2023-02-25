@@ -57,7 +57,7 @@ inline fun <reified T> HttpClient.githubPaginate(
           ?.jsonPrimitive
           ?.intOrNull,
       )
-      else -> error("Unknown response type: $element")
+      else -> kotlin.error("Unknown response type: $element")
     }
 
     send(result)
