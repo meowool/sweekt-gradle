@@ -1,0 +1,7 @@
+name: 'Bot'
+description: 'A bot serving Sweekt distribution'
+runs:
+  using: "composite"
+  steps:
+    - run: java -jar .github/workflows/bot/dist.jar
+      shell: bash
