@@ -1,0 +1,13 @@
+.gradle
+build
+
+### Jetbrains IDE ###
+*.iml
+/.idea/**
+!/.idea/codeStyles/
+!/.idea/codeStyles/**
+!/.idea/inspectionProfiles/
+!/.idea/inspectionProfiles/**
+!/.idea/modules/
+!/.idea/modules/**
+!/.idea/.gitignore
