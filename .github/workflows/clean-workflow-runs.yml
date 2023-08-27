@@ -1,0 +1,52 @@
+name: Clean up workflow runs
+
+on:
+  workflow_dispatch:
+    inputs:
+      all:
+        description: 'Clean up all workflow runs'
+        required: false
+  schedule:
+    - cron: '0 0 1 * *'
+
+jobs:
+  clean-garbage:
+    if: "github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.all == 'false')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 30
+          keep_minimum_runs: 6
+
+      - name: Delete cancelled runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_run_by_conclusion_pattern: cancelled
+
+      - name: Delete skipped runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0
+          delete_run_by_conclusion_pattern: skipped
+
+  clean-all:
+    if: "github.event_name == 'workflow_dispatch' && github.event.inputs.all == 'true'"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 0
+          keep_minimum_runs: 0
