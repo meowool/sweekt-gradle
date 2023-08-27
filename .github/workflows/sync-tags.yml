@@ -1,0 +1,21 @@
+name: Sync tags from upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # We need to specify a token here, because the default "GITHUB_TOKEN"
+          # will not trigger a "push" event.
+          token: ${{ secrets.BOT_TOKEN }}
+
+      - uses: ./.github/workflows/bot
+        env:
+          RUN_TYPE: Sync
+          GITHUB_CLIENT_TOKEN: ${{ secrets.BOT_TOKEN }}
