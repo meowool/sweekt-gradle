@@ -9,9 +9,6 @@ on:
 env:
   GITHUB_TOKEN: ${{ secrets.BOT_GRADLE_GH_ORG_BOARD_ACCESS_TOKEN }}
 
-permissions:
-  contents: read
-
 jobs:
   add_to_gh_projects:
     name: Adds issues to GH projects
