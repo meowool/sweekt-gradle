@@ -13,13 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          # We need to specify a token here, because the default "GITHUB_TOKEN"
-          # will not trigger a "push" event.
-          token: ${{ secrets.BOT_TOKEN }}
-          # Avoid "fatal: refusing to merge unrelated histories"
-          fetch-depth: 0
 
-      - uses: ./.github/workflows/bot
-        env:
-          GITHUB_CLIENT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      - name: Bump version
+        run: cd .github
+
+
+      - name: Bump version
+        run: ls .
