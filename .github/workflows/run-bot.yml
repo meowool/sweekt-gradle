@@ -1,0 +1,22 @@
+name: Run sweekt-gradle bot
+
+on:
+  push:
+    branches: ['**/*']
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+
+jobs:
+  run:
+    if: "!startsWith(github.event.head_commit.message, 'release: ')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Bump version
+        run: cd .github
+
+
+      - name: Bump version
+        run: ls .
