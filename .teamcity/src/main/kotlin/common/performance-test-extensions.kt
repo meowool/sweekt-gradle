@@ -16,10 +16,10 @@
 
 package common
 
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.BuildStep
+import jetbrains.buildServer.configs.kotlin.BuildSteps
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
 
 fun BuildType.applyPerformanceTestSettings(os: Os = Os.LINUX, arch: Arch = Arch.AMD64, timeout: Int = 30) {
     applyDefaultSettings(os = os, arch = arch, timeout = timeout)
@@ -68,15 +68,6 @@ subprojects/*/build/tmp/**/profile.log => failure-logs
 subprojects/*/build/tmp/**/daemon-*.out.log => failure-logs
 """
 
-fun BuildSteps.killGradleProcessesStep(os: Os) {
-    script {
-        name = "KILL_GRADLE_PROCESSES"
-        executionMode = BuildStep.ExecutionMode.ALWAYS
-        scriptContent = os.killAllGradleProcesses
-        skipConditionally()
-    }
-}
-
 // to avoid pathname too long error
 fun BuildSteps.substDirOnWindows(os: Os) {
     if (os == Os.WINDOWS) {
@@ -97,22 +88,9 @@ fun BuildType.cleanUpGitUntrackedFilesAndDirectories() {
         script {
             name = "CLEAN_UP_GIT_UNTRACKED_FILES_AND_DIRECTORIES"
             executionMode = BuildStep.ExecutionMode.RUN_ONLY_ON_FAILURE
-            scriptContent = "git clean -fdx -e \"test-splits/\""
+            scriptContent = "git clean -fdx -e test-splits/ -e .gradle/workspace-id.txt -e \"*.psoutput\""
             skipConditionally()
-            onlyRunOnPreTestedCommitBuildBranch()
-        }
-    }
-}
-
-fun BuildType.cleanUpPerformanceBuildDir(os: Os) {
-    if (os == Os.WINDOWS) {
-        steps {
-            script {
-                name = "CLEAN_UP_PERFORMANCE_BUILD_DIR"
-                executionMode = BuildStep.ExecutionMode.ALWAYS
-                scriptContent = """rmdir /s /q %teamcity.build.checkoutDir%\subprojects\performance\build && (echo Directory removed) || (echo Directory not found) """
-                skipConditionally()
-            }
+            onlyRunOnGitHubMergeQueueBranch()
         }
     }
 }

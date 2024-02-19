@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import gradlebuild.basics.accessors.kotlin
+import gradlebuild.basics.accessors.kotlinMainSourceSet
 import gradlebuild.basics.kotlindsl.configureKotlinCompilerForGradleBuild
 import org.gradle.api.internal.initialization.DefaultClassLoaderScope
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -27,8 +27,7 @@ plugins {
 }
 
 configurations.transitiveSourcesElements {
-    val main = sourceSets.main.get()
-    main.kotlin.srcDirs.forEach {
+    (kotlinMainSourceSet.srcDirs + sourceSets.main.get().resources.srcDirs).forEach {
         outgoing.artifact(it)
     }
 }
@@ -52,19 +51,7 @@ tasks {
         configureKotlinCompilerForGradleBuild()
     }
 
-    codeQuality {
-        dependsOn(ktlintCheck)
-    }
-
-    runKtlintCheckOverKotlinScripts {
-        // Only check the build files, not all *.kts files in the project
-        includes += listOf("*.gradle.kts")
-    }
-
     withType<Test>().configureEach {
-
-        shouldRunAfter(ktlintCheck)
-
         // enables stricter ClassLoaderScope behaviour
         systemProperty(
             DefaultClassLoaderScope.STRICT_MODE_PROPERTY,

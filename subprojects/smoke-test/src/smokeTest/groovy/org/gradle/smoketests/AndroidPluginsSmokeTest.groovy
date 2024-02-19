@@ -22,8 +22,10 @@ import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 import org.gradle.integtests.fixtures.executer.IntegrationTestBuildContext
 import org.gradle.internal.reflect.validation.ValidationMessageChecker
 import org.gradle.testkit.runner.TaskOutcome
+import org.gradle.util.internal.VersionNumber
 
 import static org.gradle.api.problems.Severity.ERROR
+
 /**
  * For these tests to run you need to set ANDROID_SDK_ROOT to your Android SDK directory
  *
@@ -65,9 +67,10 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
         def runner = useAgpVersion(agpVersion, runner('sourceSets'))
         runner.deprecations(AndroidDeprecations) {
             maybeExpectOrgGradleUtilGUtilDeprecation(agpVersion)
-            maybeExpectProjectConventionDeprecationWarning(agpVersion)
             maybeExpectAndroidConventionTypeDeprecationWarning(agpVersion)
+            expectClientModuleDeprecationWarning(agpVersion)
             maybeExpectBasePluginConventionDeprecation(agpVersion)
+            expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(VersionNumber.parse(agpVersion))
         }
 
         when:
@@ -88,6 +91,7 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
 
         given:
         AGP_VERSIONS.assumeCurrentJavaVersionIsSupportedBy(agpVersion)
+        def agpVersionNumber = VersionNumber.parse(agpVersion)
 
         and:
         def abiChange = androidLibraryAndApplicationBuild(agpVersion)
@@ -105,12 +109,13 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
         def result = runner.deprecations(AbstractAndroidSantaTrackerSmokeTest.SantaTrackerDeprecations) {
             expectAndroidWorkerExecutionSubmitDeprecationWarning(agpVersion)
             expectReportDestinationPropertyDeprecation(agpVersion)
-            expectProjectConventionDeprecationWarning(agpVersion)
             expectAndroidConventionTypeDeprecationWarning(agpVersion)
             expectBasePluginConventionDeprecation(agpVersion)
             expectBuildIdentifierNameDeprecation(agpVersion)
             expectBuildIdentifierIsCurrentBuildDeprecation(agpVersion)
             maybeExpectOrgGradleUtilGUtilDeprecation(agpVersion)
+            expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(agpVersionNumber)
+            expectClientModuleDeprecationWarning(agpVersion)
         }.build()
 
         then:
@@ -122,17 +127,22 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
         assert !result.output.contains(JAVA_COMPILE_DEPRECATION_MESSAGE)
 
         and:
-        assertConfigurationCacheStateStored()
+        if (GradleContextualExecuter.isConfigCache()) {
+            result.assertConfigurationCacheStateStored()
+        }
 
         when: 'up-to-date build'
         SantaTrackerConfigurationCacheWorkaround.beforeBuild(runner.projectDir, IntegrationTestBuildContext.INSTANCE.gradleUserHomeDir)
         result = runner.deprecations(AndroidDeprecations) {
             maybeExpectOrgGradleUtilGUtilDeprecation(agpVersion)
-            maybeExpectProjectConventionDeprecationWarning(agpVersion)
             maybeExpectReportDestinationPropertyDeprecation(agpVersion)
             maybeExpectAndroidConventionTypeDeprecationWarning(agpVersion)
             maybeExpectBasePluginConventionDeprecation(agpVersion)
             maybeExpectBuildIdentifierIsCurrentBuildDeprecation(agpVersion)
+            if (!GradleContextualExecuter.isConfigCache()) {
+                expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(agpVersionNumber)
+                expectClientModuleDeprecationWarning(agpVersion)
+            }
         }.build()
 
         then:
@@ -142,7 +152,9 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
         result.task(':app:processDebugAndroidTestManifest').outcome == TaskOutcome.UP_TO_DATE
 
         and:
-        assertConfigurationCacheStateLoaded()
+        if (GradleContextualExecuter.isConfigCache()) {
+            result.assertConfigurationCacheStateLoaded()
+        }
 
         when: 'abi change on library'
         abiChange.run()
@@ -152,10 +164,11 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
             expectAndroidWorkerExecutionSubmitDeprecationWarning(agpVersion)
             if (!GradleContextualExecuter.isConfigCache()) {
                 expectReportDestinationPropertyDeprecation(agpVersion)
-                expectProjectConventionDeprecationWarning(agpVersion)
                 expectAndroidConventionTypeDeprecationWarning(agpVersion)
                 expectBasePluginConventionDeprecation(agpVersion)
                 expectBuildIdentifierIsCurrentBuildDeprecation(agpVersion)
+                expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(agpVersionNumber)
+                expectClientModuleDeprecationWarning(agpVersion)
             }
         }.build()
 
@@ -166,15 +179,18 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
         result.task(':app:assembleDebug').outcome == TaskOutcome.SUCCESS
 
         and:
-        assertConfigurationCacheStateLoaded()
+        if (GradleContextualExecuter.isConfigCache()) {
+            result.assertConfigurationCacheStateLoaded()
+        }
 
         when: 'clean re-build'
         def smokeTestRunner = this.runner('clean')
         useAgpVersion(agpVersion, smokeTestRunner).deprecations(AndroidDeprecations) {
             maybeExpectOrgGradleUtilGUtilDeprecation(agpVersion)
-            expectProjectConventionDeprecationWarning(agpVersion)
             expectAndroidConventionTypeDeprecationWarning(agpVersion)
             expectBasePluginConventionDeprecation(agpVersion)
+            expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(agpVersionNumber)
+            expectClientModuleDeprecationWarning(agpVersion)
         }.build()
         SantaTrackerConfigurationCacheWorkaround.beforeBuild(runner.projectDir, IntegrationTestBuildContext.INSTANCE.gradleUserHomeDir)
         result = runner.deprecations(AndroidDeprecations) {
@@ -183,10 +199,11 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
             expectBuildIdentifierNameDeprecation(agpVersion)
             if (!GradleContextualExecuter.isConfigCache()) {
                 expectReportDestinationPropertyDeprecation(agpVersion)
-                expectProjectConventionDeprecationWarning(agpVersion)
                 expectAndroidConventionTypeDeprecationWarning(agpVersion)
                 expectBasePluginConventionDeprecation(agpVersion)
                 expectBuildIdentifierIsCurrentBuildDeprecation(agpVersion)
+                expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(agpVersionNumber)
+                expectClientModuleDeprecationWarning(agpVersion)
             }
         }.build()
 
@@ -196,7 +213,9 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
         result.task(':app:assembleDebug').outcome == TaskOutcome.SUCCESS
 
         and:
-        assertConfigurationCacheStateLoaded()
+        if (GradleContextualExecuter.isConfigCache()) {
+            result.assertConfigurationCacheStateLoaded()
+        }
 
         where:
         [agpVersion, ide] << [
@@ -380,8 +399,8 @@ class AndroidPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implemen
                     versionName "1.0"
                 }
                 compileOptions {
-                    sourceCompatibility JavaVersion.VERSION_1_7
-                    targetCompatibility JavaVersion.VERSION_1_7
+                    sourceCompatibility JavaVersion.VERSION_1_8
+                    targetCompatibility JavaVersion.VERSION_1_8
                 }
                 buildTypes {
                     release {

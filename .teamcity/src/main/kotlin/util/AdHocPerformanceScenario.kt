@@ -2,19 +2,20 @@ package util
 
 import common.Arch
 import common.JvmVendor
+import common.KillProcessMode.KILL_ALL_GRADLE_PROCESSES
 import common.Os
 import common.applyPerformanceTestSettings
 import common.buildToolGradleParameters
 import common.checkCleanM2AndAndroidUserHome
 import common.gradleWrapper
 import common.individualPerformanceTestArtifactRules
-import common.killGradleProcessesStep
+import common.killProcessStep
 import common.performanceTestCommandLine
 import common.removeSubstDirOnWindows
 import common.substDirOnWindows
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.ParameterDisplay
-import jetbrains.buildServer.configs.kotlin.v2019_2.ParametrizedWithType
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.ParameterDisplay
+import jetbrains.buildServer.configs.kotlin.ParametrizedWithType
 
 abstract class AdHocPerformanceScenario(os: Os, arch: Arch = Arch.AMD64) : BuildType({
     val id = "Util_Performance_AdHocPerformanceScenario${os.asName()}${arch.asName()}"
@@ -63,6 +64,7 @@ abstract class AdHocPerformanceScenario(os: Os, arch: Arch = Arch.AMD64) : Build
                 profilerParam("jprofiler")
                 param("env.JPROFILER_HOME", "C:\\Program Files\\jprofiler\\jprofiler11.1.4")
             }
+
             else -> {
                 profilerParam("async-profiler")
                 param("env.FG_HOME_DIR", "/opt/FlameGraph")
@@ -75,8 +77,9 @@ abstract class AdHocPerformanceScenario(os: Os, arch: Arch = Arch.AMD64) : Build
         param("additional.gradle.parameters", "")
     }
 
+    val buildTypeThis = this
     steps {
-        killGradleProcessesStep(os)
+        killProcessStep(buildTypeThis, KILL_ALL_GRADLE_PROCESSES, os)
         substDirOnWindows(os)
         gradleWrapper {
             name = "GRADLE_RUNNER"
@@ -111,4 +114,4 @@ fun ParametrizedWithType.profilerParam(defaultProfiler: String) {
 object AdHocPerformanceScenarioLinux : AdHocPerformanceScenario(Os.LINUX)
 object AdHocPerformanceScenarioWindows : AdHocPerformanceScenario(Os.WINDOWS)
 object AdHocPerformanceScenarioMacOS : AdHocPerformanceScenario(Os.MACOS, Arch.AMD64)
-object AdHocPerformanceScenarioMacM1 : AdHocPerformanceScenario(Os.MACOS, Arch.AARCH64)
+object AdHocPerformanceScenarioMacAppleSilicon : AdHocPerformanceScenario(Os.MACOS, Arch.AARCH64)

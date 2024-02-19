@@ -17,9 +17,9 @@
 package org.gradle.internal.build.event.types;
 
 import org.gradle.api.NonNullApi;
+import org.gradle.tooling.internal.protocol.InternalProblemDetails;
 import org.gradle.tooling.internal.protocol.InternalProblemEvent;
 import org.gradle.tooling.internal.protocol.events.InternalProblemDescriptor;
-import org.gradle.tooling.internal.protocol.InternalProblemDetails;
 
 @NonNullApi
 public class DefaultProblemEvent extends AbstractProgressEvent<InternalProblemDescriptor> implements InternalProblemEvent {
@@ -33,6 +33,7 @@ public class DefaultProblemEvent extends AbstractProgressEvent<InternalProblemDe
         this.details = details;
     }
 
+    @Override
     public String getDisplayName() {
         return "problem";
     }

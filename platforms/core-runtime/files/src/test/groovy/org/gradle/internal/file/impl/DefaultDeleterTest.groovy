@@ -21,6 +21,7 @@ import org.gradle.test.precondition.Requires
 import org.gradle.test.precondition.TestPrecondition
 import org.gradle.test.preconditions.UnitTestPreconditions
 import org.junit.Rule
+import spock.lang.Issue
 import spock.lang.Specification
 
 import java.nio.file.Files
@@ -69,6 +70,21 @@ class DefaultDeleterTest extends Specification {
         given:
         TestFile dir = tmpDir.getTestDirectory()
         dir.file("someFile").createFile()
+
+        when:
+        boolean didWork = deleter.ensureEmptyDirectory(dir)
+
+        then:
+        dir.assertIsEmptyDir()
+        didWork
+    }
+
+    @Issue("https://github.com/gradle/gradle/issues/26912")
+    def "deletes read-only file"() {
+        given:
+        TestFile dir = tmpDir.getTestDirectory()
+        TestFile file = dir.file("someFile").createFile()
+        file.setWritable(false);
 
         when:
         boolean didWork = deleter.ensureEmptyDirectory(dir)
@@ -186,6 +202,24 @@ class DefaultDeleterTest extends Specification {
         "directory"            | true        | false
         "symlink to file"      | false       | true
         "symlink to directory" | true        | true
+    }
+
+    def "reports root cause when failing to delete a file"() {
+        given:
+        deleter = FileTime.deleterWithDeletionAction() { file ->
+            return DeletionAction.EXCEPTION
+        }
+
+        and:
+        def target = tmpDir.createFile("target")
+
+        when:
+        deleter.deleteRecursively(target)
+
+        then:
+        def ex = thrown IOException
+        ex.message == "Unable to delete file '$target'"
+        ex.suppressed.collect { it.message } == ["ROOT CAUSE"]
     }
 
     def "reports failed to delete child files and reports a reasonable number of retries after failure to delete directory"() {
@@ -342,7 +376,7 @@ class DefaultDeleterTest extends Specification {
         }
 
         when:
-        deleter .deleteRecursively(targetDir)
+        deleter.deleteRecursively(targetDir)
 
         then: 'nothing gets deleted'
         targetDir.assertIsDir()
@@ -382,10 +416,12 @@ class DefaultDeleterTest extends Specification {
                 false
             ) {
                 @Override
-                protected boolean deleteFile(File file) {
+                protected DefaultDeleter.FileDeletionResult deleteFile(File file) {
                     switch (deletionAction.apply(file)) {
+                        case DeletionAction.EXCEPTION:
+                            return DefaultDeleter.FileDeletionResult.withException(new Exception("ROOT CAUSE"))
                         case DeletionAction.FAILURE:
-                            return false
+                            return DefaultDeleter.FileDeletionResult.withoutException(false)
                         case DeletionAction.CONTINUE:
                             return super.deleteFile(file)
                         default:
@@ -412,6 +448,6 @@ class DefaultDeleterTest extends Specification {
     }
 
     private static enum DeletionAction {
-        FAILURE, CONTINUE
+        EXCEPTION, FAILURE, CONTINUE
     }
 }

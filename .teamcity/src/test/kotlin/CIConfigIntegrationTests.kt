@@ -3,9 +3,10 @@ import common.JvmVersion
 import common.Os
 import common.VersionedSettingsBranch
 import configurations.BaseGradleBuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.DslContext
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.GradleBuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnText
+import configurations.GitHubMergeQueueCheckPass
+import jetbrains.buildServer.configs.kotlin.DslContext
+import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
+import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
 import model.ALL_CROSS_VERSION_BUCKETS
 import model.CIBuildModel
 import model.DefaultFunctionalTestBucketProvider
@@ -41,12 +42,12 @@ class CIConfigIntegrationTests {
     @Test
     fun configurationTreeCanBeGenerated() {
         assertEquals(rootProject.subProjects.size, model.stages.size)
-        assertEquals(rootProject.buildTypes.size, model.stages.size)
+        assertEquals(rootProject.buildTypes.size, model.stages.size + 1) // +1 for the GitHubMergeQueueCheckPass
     }
 
     @Test
     fun configurationsHaveDependencies() {
-        val stagePassConfigs = rootProject.buildTypes
+        val stagePassConfigs = rootProject.buildTypes.filter { it !is GitHubMergeQueueCheckPass }
         assertEquals(model.stages.size, stagePassConfigs.size)
         stagePassConfigs.forEach {
             val stageNumber = stagePassConfigs.indexOf(it) + 1
@@ -136,9 +137,11 @@ class CIConfigIntegrationTests {
                     functionalTestProject.name.contains("AllVersionsCrossVersion") -> {
                         assertProjectAreSplitByGradleVersionCorrectly(ALL_CROSS_VERSION_BUCKETS, TestType.allVersionsCrossVersion, functionalTestProject.functionalTests)
                     }
+
                     functionalTestProject.name.contains("QuickFeedbackCrossVersion") -> {
                         assertProjectAreSplitByGradleVersionCorrectly(QUICK_CROSS_VERSION_BUCKETS, TestType.quickFeedbackCrossVersion, functionalTestProject.functionalTests)
                     }
+
                     else -> {
                         assertProjectAreSplitByClassesCorrectly(functionalTestProject.functionalTests)
                     }
@@ -159,7 +162,10 @@ class CIConfigIntegrationTests {
 
     private fun subProjectFolderList(): List<File> {
         val subprojectRoots = File("../platforms").listFiles(File::isDirectory).plus(File("../subprojects"))
-        val subProjectFolders = subprojectRoots.map { it.listFiles(File::isDirectory).asList() }.flatten()
+        val subProjectFolders = subprojectRoots.map { it.listFiles(File::isDirectory).asList() }.flatten().filter { dir ->
+            // filter out the directories that have only a `build` subdirectory - this usually happens after branch switching
+            dir.listFiles { _: File, name: String -> name != "build" }!!.isNotEmpty()
+        }
         assertFalse(subProjectFolders.isEmpty())
         return subProjectFolders
     }
@@ -211,11 +217,14 @@ class CIConfigIntegrationTests {
     }
 
     private fun containsSrcFileWithString(srcRoot: File, content: String, exceptions: List<String>): Boolean {
-        srcRoot.walkTopDown().forEach {
-            if (it.extension == "groovy" || it.extension == "java") {
-                val text = it.readText()
+        srcRoot.walkTopDown().forEach { file ->
+            if (file.extension == "groovy" || file.extension == "java") {
+                val originalText = file.readText()
+                val text = originalText.lineSequence()
+                    .filterNot { it.trim().startsWith("//") }
+                    .joinToString("\n")
                 if (text.contains(content) && exceptions.all { !text.contains(it) }) {
-                    println("Found suspicious test file: $it")
+                    println("Found suspicious test file: $file")
                     return true
                 }
             }

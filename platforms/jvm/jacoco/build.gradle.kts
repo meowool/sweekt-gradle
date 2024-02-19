@@ -4,6 +4,14 @@ plugins {
 
 description = "Plugin and integration with JaCoCo code coverage"
 
+errorprone {
+    disabledChecks.addAll(
+        "ReferenceEquality", // 3 occurrences
+        "UnnecessaryParentheses", // 1 occurrences
+        "UnusedMethod", // 1 occurrences
+    )
+}
+
 dependencies {
     implementation(project(":base-services"))
     implementation(project(":logging"))
@@ -11,16 +19,18 @@ dependencies {
     implementation(project(":core-api"))
     implementation(project(":model-core"))
     implementation(project(":core"))
+    implementation(project(":language-jvm"))
     implementation(project(":platform-base"))
     implementation(project(":testing-base"))
     implementation(project(":testing-jvm"))
+    implementation(project(":test-suites-base"))
     implementation(project(":plugins"))
     implementation(project(":plugins-java"))
+    implementation(project(":plugins-java-base"))
     implementation(project(":platform-jvm"))
     implementation(project(":reporting"))
     implementation(project(":file-collections"))
     implementation(project(":plugins-jvm-test-suite"))
-    implementation(project(":plugins-jvm-test-suite-base"))
 
     implementation(libs.groovy)
     implementation(libs.guava)

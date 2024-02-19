@@ -18,28 +18,29 @@ package common
 
 import common.KillProcessMode.KILL_ALL_GRADLE_PROCESSES
 import configurations.CompileAll
+import configurations.FunctionalTest
 import configurations.branchesFilterExcluding
 import configurations.buildScanCustomValue
 import configurations.buildScanTag
 import configurations.checkCleanDirUnixLike
 import configurations.checkCleanDirWindows
 import configurations.enablePullRequestFeature
-import jetbrains.buildServer.configs.kotlin.v2019_2.AbsoluteId
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildSteps
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildType
-import jetbrains.buildServer.configs.kotlin.v2019_2.BuildTypeSettings
-import jetbrains.buildServer.configs.kotlin.v2019_2.CheckoutMode
-import jetbrains.buildServer.configs.kotlin.v2019_2.Dependencies
-import jetbrains.buildServer.configs.kotlin.v2019_2.FailureAction
-import jetbrains.buildServer.configs.kotlin.v2019_2.Project
-import jetbrains.buildServer.configs.kotlin.v2019_2.RelativeId
-import jetbrains.buildServer.configs.kotlin.v2019_2.Requirements
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.GradleBuildStep
-import jetbrains.buildServer.configs.kotlin.v2019_2.buildSteps.script
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.BuildFailureOnText
-import jetbrains.buildServer.configs.kotlin.v2019_2.failureConditions.failOnText
-import jetbrains.buildServer.configs.kotlin.v2019_2.ui.add
+import jetbrains.buildServer.configs.kotlin.AbsoluteId
+import jetbrains.buildServer.configs.kotlin.BuildStep
+import jetbrains.buildServer.configs.kotlin.BuildSteps
+import jetbrains.buildServer.configs.kotlin.BuildType
+import jetbrains.buildServer.configs.kotlin.BuildTypeSettings
+import jetbrains.buildServer.configs.kotlin.CheckoutMode
+import jetbrains.buildServer.configs.kotlin.Dependencies
+import jetbrains.buildServer.configs.kotlin.FailureAction
+import jetbrains.buildServer.configs.kotlin.Project
+import jetbrains.buildServer.configs.kotlin.RelativeId
+import jetbrains.buildServer.configs.kotlin.Requirements
+import jetbrains.buildServer.configs.kotlin.buildSteps.GradleBuildStep
+import jetbrains.buildServer.configs.kotlin.buildSteps.script
+import jetbrains.buildServer.configs.kotlin.failureConditions.BuildFailureOnText
+import jetbrains.buildServer.configs.kotlin.failureConditions.failOnText
+import jetbrains.buildServer.configs.kotlin.ui.add
 import java.util.Locale
 
 const val pluginPortalUrlOverride = "-Dorg.gradle.internal.plugins.portal.url.override=%gradle.plugins.portal.url%"
@@ -159,7 +160,7 @@ fun BuildType.paramsForBuildToolBuild(buildJvm: Jvm = BuildToolBuildJvm, os: Os,
         param("env.GRADLE_CACHE_REMOTE_USERNAME", "%gradle.cache.remote.username%")
 
         param("env.JAVA_HOME", javaHome(buildJvm, os, arch))
-        param("env.GRADLE_OPTS", "-Xmx1536m -XX:MaxPermSize=384m")
+        param("env.GRADLE_OPTS", "-Xmx1536m")
         param("env.ANDROID_HOME", os.androidHome)
         param("env.ANDROID_SDK_ROOT", os.androidHome)
         param("env.GRADLE_INTERNAL_REPO_URL", "%gradle.internal.repository.url%")
@@ -192,9 +193,9 @@ fun BuildSteps.checkCleanM2AndAndroidUserHome(os: Os = Os.LINUX, buildType: Buil
     }
 }
 
-fun BuildStep.onlyRunOnPreTestedCommitBuildBranch() {
+fun BuildStep.onlyRunOnGitHubMergeQueueBranch() {
     conditions {
-        contains("teamcity.build.branch", "pre-test/")
+        matches("teamcity.build.branch", "(pre-test/.*)|(gh-readonly-queue/.*)")
     }
 }
 
@@ -263,7 +264,8 @@ fun functionalTestParameters(os: Os): List<String> {
     return listOf(
         "-PteamCityBuildId=%teamcity.build.id%",
         os.javaInstallationLocations(),
-        "-Porg.gradle.java.installations.auto-download=false"
+        "-Porg.gradle.java.installations.auto-download=false",
+        "-Porg.gradle.java.installations.auto-detect=false",
     )
 }
 
@@ -279,18 +281,22 @@ enum class KillProcessMode {
     KILL_ALL_GRADLE_PROCESSES
 }
 
-fun BuildType.killProcessStep(mode: KillProcessMode, os: Os, arch: Arch = Arch.AMD64, executionMode: BuildStep.ExecutionMode = BuildStep.ExecutionMode.ALWAYS) {
-    steps {
-        script {
-            name = mode.toString()
-            this.executionMode = executionMode
-            scriptContent = "\"${javaHome(BuildToolBuildJvm, os, arch)}/bin/java\" build-logic/cleanup/src/main/java/gradlebuild/cleanup/services/KillLeakingJavaProcesses.java $mode" +
-                if (os == Os.WINDOWS) "\nwmic Path win32_process Where \"name='java.exe'\"" else ""
-            skipConditionally(this@killProcessStep)
-            if (mode == KILL_ALL_GRADLE_PROCESSES) {
-                onlyRunOnPreTestedCommitBuildBranch()
-            }
+fun BuildSteps.killProcessStep(buildType: BuildType?, mode: KillProcessMode, os: Os, arch: Arch = Arch.AMD64, executionMode: BuildStep.ExecutionMode = BuildStep.ExecutionMode.DEFAULT) {
+    script {
+        name = mode.toString()
+        this.executionMode = executionMode
+        scriptContent = "\"${javaHome(BuildToolBuildJvm, os, arch)}/bin/java\" build-logic/cleanup/src/main/java/gradlebuild/cleanup/services/KillLeakingJavaProcesses.java $mode" +
+            if (os == Os.WINDOWS) "\nwmic Path win32_process Where \"name='java.exe'\"" else ""
+        skipConditionally(buildType)
+        if (mode == KILL_ALL_GRADLE_PROCESSES && buildType is FunctionalTest) {
+            onlyRunOnGitHubMergeQueueBranch()
         }
+    }
+}
+
+fun BuildType.killProcessStep(mode: KillProcessMode, os: Os, arch: Arch = Arch.AMD64, executionMode: BuildStep.ExecutionMode = BuildStep.ExecutionMode.DEFAULT) {
+    steps {
+        killProcessStep(this@killProcessStep, mode, os, arch, executionMode)
     }
 }
 

@@ -44,14 +44,6 @@ trait WithAndroidDeprecations implements WithReportDeprecations {
         runner.expectLegacyDeprecationWarningIf(androidPluginUsesOldWorkerApi(agpVersion), WORKER_SUBMIT_DEPRECATION)
     }
 
-    void expectProjectConventionDeprecationWarning(String agpVersion) {
-        runner.expectLegacyDeprecationWarningIf(androidPluginUsesConventions(agpVersion), PROJECT_CONVENTION_DEPRECATION)
-    }
-
-    void maybeExpectProjectConventionDeprecationWarning(String agpVersion) {
-        runner.maybeExpectLegacyDeprecationWarningIf(androidPluginUsesConventions(agpVersion), PROJECT_CONVENTION_DEPRECATION)
-    }
-
     void expectAndroidConventionTypeDeprecationWarning(String agpVersion) {
         runner.expectLegacyDeprecationWarningIf(androidPluginUsesConventions(agpVersion), CONVENTION_TYPE_DEPRECATION)
     }
@@ -93,6 +85,26 @@ trait WithAndroidDeprecations implements WithReportDeprecations {
         )
     }
 
+    void expectClientModuleDeprecationWarning(String agpVersion) {
+        runner.expectLegacyDeprecationWarningIf(
+            versionIsLower(agpVersion, AGP_VERSION_WITHOUT_CLIENT_MODULE),
+            "Declaring client module dependencies has been deprecated. " +
+                "This is scheduled to be removed in Gradle 9.0. " +
+                "Please use component metadata rules instead. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#declaring_client_module_dependencies",
+        )
+    }
+
+    void maybeExpectClientModuleDeprecationWarning(String agpVersion) {
+        runner.maybeExpectLegacyDeprecationWarningIf(
+            versionIsLower(agpVersion, AGP_VERSION_WITHOUT_CLIENT_MODULE),
+            "Declaring client module dependencies has been deprecated. " +
+                "This is scheduled to be removed in Gradle 9.0. " +
+                "Please use component metadata rules instead. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#declaring_client_module_dependencies",
+        )
+    }
+
     void expectBuildIdentifierIsCurrentBuildDeprecation(String agpVersion, String fixedVersion = '8.0.0') {
         VersionNumber agpVersionNumber = VersionNumber.parse(agpVersion)
         runner.expectLegacyDeprecationWarningIf(
@@ -119,4 +131,15 @@ trait WithAndroidDeprecations implements WithReportDeprecations {
             GUTIL_DEPRECATION
         )
     }
+
+    void expectAndroidBasePluginExtensionArchivesBaseNameDeprecation(VersionNumber versionNumber) {
+        runner.expectLegacyDeprecationWarningIf(
+            versionNumber < VersionNumber.parse('7.4.0'),
+            "The BasePluginExtension.archivesBaseName property has been deprecated. " +
+                "This is scheduled to be removed in Gradle 9.0. " +
+                "Please use the archivesName property instead. " +
+                "For more information, please refer to https://docs.gradle.org/${GradleVersion.current().version}/dsl/org.gradle.api.plugins.BasePluginExtension.html#org.gradle.api.plugins.BasePluginExtension:archivesName in the Gradle documentation."
+        )
+    }
+
 }

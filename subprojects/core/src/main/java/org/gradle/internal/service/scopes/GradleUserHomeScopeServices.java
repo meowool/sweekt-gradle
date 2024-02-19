@@ -31,9 +31,9 @@ import org.gradle.api.internal.file.temp.TemporaryFileProvider;
 import org.gradle.api.internal.initialization.loadercache.ClassLoaderCache;
 import org.gradle.api.internal.initialization.loadercache.DefaultClassLoaderCache;
 import org.gradle.api.model.ObjectFactory;
-import org.gradle.cache.UnscopedCacheBuilderFactory;
 import org.gradle.cache.GlobalCache;
 import org.gradle.cache.GlobalCacheLocations;
+import org.gradle.cache.UnscopedCacheBuilderFactory;
 import org.gradle.cache.internal.CrossBuildInMemoryCacheFactory;
 import org.gradle.cache.internal.DefaultFileContentCacheFactory;
 import org.gradle.cache.internal.DefaultGeneratedGradleJarCache;
@@ -49,6 +49,7 @@ import org.gradle.execution.plan.ToPlannedNodeConverterRegistry;
 import org.gradle.execution.plan.ToPlannedTaskConverter;
 import org.gradle.groovy.scripts.internal.CrossBuildInMemoryCachingScriptClassCache;
 import org.gradle.groovy.scripts.internal.DefaultScriptSourceHasher;
+import org.gradle.groovy.scripts.internal.GroovyDslWorkspaceProvider;
 import org.gradle.groovy.scripts.internal.RegistryAwareClassLoaderHierarchyHasher;
 import org.gradle.groovy.scripts.internal.ScriptSourceHasher;
 import org.gradle.initialization.ClassLoaderRegistry;
@@ -60,10 +61,12 @@ import org.gradle.initialization.layout.GlobalCacheDir;
 import org.gradle.internal.classloader.ClasspathHasher;
 import org.gradle.internal.classloader.DefaultHashingClassLoaderFactory;
 import org.gradle.internal.classloader.HashingClassLoaderFactory;
-import org.gradle.internal.classpath.ClasspathBuilder;
 import org.gradle.internal.classpath.ClasspathWalker;
 import org.gradle.internal.classpath.DefaultCachedClasspathTransformer;
+import org.gradle.internal.classpath.DefaultClasspathBuilder;
 import org.gradle.internal.classpath.DefaultClasspathTransformerCacheFactory;
+import org.gradle.internal.classpath.transforms.ClasspathElementTransformFactoryForAgent;
+import org.gradle.internal.classpath.transforms.ClasspathElementTransformFactoryForLegacy;
 import org.gradle.internal.classpath.types.GradleCoreInstrumentingTypeRegistry;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.event.DefaultListenerManager;
@@ -103,15 +106,18 @@ public class GradleUserHomeScopeServices extends WorkerSharedUserHomeScopeServic
         this.globalServices = globalServices;
     }
 
+    @Override
     public void configure(ServiceRegistration registration) {
         super.configure(registration);
         registration.addProvider(new GradleUserHomeCleanupServices());
         registration.add(ClasspathWalker.class);
-        registration.add(ClasspathBuilder.class);
+        registration.add(DefaultClasspathBuilder.class);
         registration.add(GradleUserHomeTemporaryFileProvider.class);
         registration.add(DefaultClasspathTransformerCacheFactory.class);
         registration.add(GradleUserHomeScopeFileTimeStampInspector.class);
         registration.add(GradleCoreInstrumentingTypeRegistry.class);
+        registration.add(ClasspathElementTransformFactoryForAgent.class);
+        registration.add(ClasspathElementTransformFactoryForLegacy.class);
         registration.add(DefaultCachedClasspathTransformer.class);
         for (PluginServiceRegistry plugin : globalServices.getAll(PluginServiceRegistry.class)) {
             plugin.registerGradleUserHomeServices(registration);
@@ -126,6 +132,7 @@ public class GradleUserHomeScopeServices extends WorkerSharedUserHomeScopeServic
         return new ToPlannedTaskConverter();
     }
 
+    @Override
     DefaultGlobalScopedCacheBuilderFactory createGlobalScopedCache(GlobalCacheDir globalCacheDir, UnscopedCacheBuilderFactory unscopedCacheBuilderFactory) {
         return new DefaultGlobalScopedCacheBuilderFactory(globalCacheDir.getDir(), unscopedCacheBuilderFactory);
     }
@@ -183,9 +190,15 @@ public class GradleUserHomeScopeServices extends WorkerSharedUserHomeScopeServic
     }
 
     WorkerProcessFactory createWorkerProcessFactory(
-        LoggingManagerInternal loggingManagerInternal, MessagingServer messagingServer, ClassPathRegistry classPathRegistry,
-        TemporaryFileProvider temporaryFileProvider, JavaExecHandleFactory execHandleFactory, JvmVersionDetector jvmVersionDetector,
-        MemoryManager memoryManager, GradleUserHomeDirProvider gradleUserHomeDirProvider, OutputEventListener outputEventListener
+        LoggingManagerInternal loggingManagerInternal,
+        MessagingServer messagingServer,
+        ClassPathRegistry classPathRegistry,
+        TemporaryFileProvider temporaryFileProvider,
+        JavaExecHandleFactory execHandleFactory,
+        JvmVersionDetector jvmVersionDetector,
+        MemoryManager memoryManager,
+        GradleUserHomeDirProvider gradleUserHomeDirProvider,
+        OutputEventListener outputEventListener
     ) {
         return new DefaultWorkerProcessFactory(
             loggingManagerInternal,
@@ -238,5 +251,13 @@ public class GradleUserHomeScopeServices extends WorkerSharedUserHomeScopeServic
     }
     protected CacheConfigurationsInternal createCachesConfiguration(ObjectFactory objectFactory, LegacyCacheCleanupEnablement legacyCacheCleanupEnablement) {
         return objectFactory.newInstance(DefaultCacheConfigurations.class, legacyCacheCleanupEnablement);
+    }
+
+    GroovyDslWorkspaceProvider createGroovyDslWorkspaceProvider(
+        GlobalScopedCacheBuilderFactory cacheBuilderFactory,
+        FileAccessTimeJournal fileAccessTimeJournal,
+        CacheConfigurationsInternal cacheConfigurations
+    ) {
+       return new GroovyDslWorkspaceProvider(cacheBuilderFactory, fileAccessTimeJournal, cacheConfigurations);
     }
 }

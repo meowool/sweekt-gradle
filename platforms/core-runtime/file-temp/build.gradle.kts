@@ -23,12 +23,9 @@ description = "Utilities for working with temporary files & directories"
 gradlebuildJava.usedInWorkers()
 
 dependencies {
-    implementation(project(":base-annotations"))
-    implementation(project(":base-services"))
+    api(project(":base-annotations"))
+    api(project(":base-services"))
 
-    implementation(libs.inject)
-
-    testImplementation(testFixtures(project(":core-api")))
-
-    testFixturesImplementation(libs.jetbrainsAnnotations)
+    api(libs.inject)
+    api(libs.jsr305)
 }

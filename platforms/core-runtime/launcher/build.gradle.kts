@@ -5,10 +5,27 @@ plugins {
 
 description = "Implementation for launching, controlling and communicating with Gradle Daemon from CLI and TAPI"
 
+errorprone {
+    disabledChecks.addAll(
+        "DefaultCharset", // 5 occurrences
+        "FutureReturnValueIgnored", // 2 occurrences
+        "InlineFormatString", // 1 occurrences
+        "LockNotBeforeTry", // 7 occurrences
+        "MissingCasesInEnumSwitch", // 1 occurrences
+        "NarrowCalculation", // 1 occurrences
+        "StringCaseLocaleUsage", // 1 occurrences
+        "StringSplitter", // 1 occurrences
+        "URLEqualsHashCode", // 3 occurrences
+        "UndefinedEquals", // 1 occurrences
+        "UnusedVariable", // 3 occurrences
+    )
+}
+
 dependencies {
     implementation(project(":base-services"))
     implementation(project(":functional"))
     implementation(project(":enterprise-operations"))
+    implementation(project(":enterprise-workers"))
     implementation(project(":cli"))
     implementation(project(":messaging"))
     implementation(project(":build-option"))
@@ -28,7 +45,9 @@ dependencies {
     implementation(project(":build-events"))
     implementation(project(":tooling-api"))
     implementation(project(":file-watching"))
+    implementation(project(":problems-api"))
     implementation(project(":problems"))
+    implementation(project(":declarative-dsl-provider"))
 
     implementation(libs.groovy) // for 'ReleaseInfo.getVersion()'
     implementation(libs.slf4jApi)
@@ -87,4 +106,3 @@ strictCompile {
 }
 
 testFilesCleanup.reportOnly = true
-

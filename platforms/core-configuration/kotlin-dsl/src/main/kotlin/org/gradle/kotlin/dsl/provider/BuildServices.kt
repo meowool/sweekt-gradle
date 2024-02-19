@@ -22,14 +22,13 @@ import org.gradle.api.internal.cache.StringInterner
 import org.gradle.api.internal.changedetection.state.ResourceSnapshotterCacheService
 import org.gradle.api.internal.classpath.ModuleRegistry
 import org.gradle.api.internal.file.FileCollectionFactory
-import org.gradle.api.internal.file.temp.TemporaryFileProvider
 import org.gradle.api.internal.initialization.loadercache.DefaultClasspathHasher
-import org.gradle.cache.internal.GeneratedGradleJarCache
 import org.gradle.groovy.scripts.internal.ScriptSourceHasher
 import org.gradle.initialization.ClassLoaderScopeRegistry
 import org.gradle.initialization.GradlePropertiesController
 import org.gradle.internal.classloader.ClasspathHasher
 import org.gradle.internal.classpath.CachedClasspathTransformer
+import org.gradle.internal.classpath.transforms.ClasspathElementTransformFactoryForLegacy
 import org.gradle.internal.event.ListenerManager
 import org.gradle.internal.execution.ExecutionEngine
 import org.gradle.internal.execution.FileCollectionSnapshotter
@@ -60,9 +59,6 @@ object BuildServices {
         classPathRegistry: ClassPathRegistry,
         classLoaderScopeRegistry: ClassLoaderScopeRegistry,
         dependencyFactory: DependencyFactoryInternal,
-        jarCache: GeneratedGradleJarCache,
-        temporaryFileProvider: TemporaryFileProvider,
-        progressLoggerFactory: ProgressLoggerFactory
     ) =
 
         KotlinScriptClassPathProvider(
@@ -70,9 +66,6 @@ object BuildServices {
             classPathRegistry,
             classLoaderScopeRegistry.coreAndPluginsScope,
             gradleApiJarsProviderFor(dependencyFactory),
-            versionedJarCacheFor(jarCache),
-            temporaryFileProvider,
-            StandardJarGenerationProgressMonitorProvider(progressLoggerFactory)
         )
 
     @Suppress("unused")
@@ -109,6 +102,7 @@ object BuildServices {
         fileCollectionFactory: FileCollectionFactory,
         inputFingerprinter: InputFingerprinter,
         gradlePropertiesController: GradlePropertiesController,
+        transformFactoryForLegacy: ClasspathElementTransformFactoryForLegacy
     ): KotlinScriptEvaluator =
 
         StandardKotlinScriptEvaluator(
@@ -131,6 +125,7 @@ object BuildServices {
             fileCollectionFactory,
             inputFingerprinter,
             gradlePropertiesController,
+            transformFactoryForLegacy
         )
 
     @Suppress("unused")
@@ -157,10 +152,6 @@ object BuildServices {
     @Suppress("unused")
     fun createKotlinCompilerContextDisposer(listenerManager: ListenerManager) =
         KotlinCompilerContextDisposer(listenerManager)
-
-    private
-    fun versionedJarCacheFor(jarCache: GeneratedGradleJarCache): JarCache =
-        { id, creator -> jarCache[id, creator] }
 
     private
     val isKotlinScriptCompilationAvoidanceEnabled: Boolean

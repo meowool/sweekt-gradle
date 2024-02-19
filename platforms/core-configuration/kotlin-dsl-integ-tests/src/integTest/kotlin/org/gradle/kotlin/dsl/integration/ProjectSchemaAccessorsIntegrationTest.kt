@@ -17,11 +17,14 @@
 package org.gradle.kotlin.dsl.integration
 
 import org.gradle.integtests.fixtures.RepoScriptBlockUtil
+import org.gradle.kotlin.dsl.fixtures.AbstractKotlinIntegrationTest
 import org.gradle.kotlin.dsl.fixtures.FoldersDsl
 import org.gradle.kotlin.dsl.fixtures.FoldersDslExpression
 import org.gradle.kotlin.dsl.fixtures.containsMultiLineString
 import org.gradle.test.fixtures.dsl.GradleDsl
 import org.gradle.test.fixtures.file.LeaksFileHandles
+import org.gradle.test.precondition.Requires
+import org.gradle.test.preconditions.UnitTestPreconditions
 import org.hamcrest.CoreMatchers.allOf
 import org.hamcrest.CoreMatchers.containsString
 import org.hamcrest.CoreMatchers.not
@@ -31,7 +34,7 @@ import java.io.File
 
 
 @LeaksFileHandles("Kotlin Compiler Daemon working directory")
-class ProjectSchemaAccessorsIntegrationTest : AbstractPluginIntegrationTest() {
+class ProjectSchemaAccessorsIntegrationTest : AbstractKotlinIntegrationTest() {
 
     @Test
     fun `can access sub-project specific task`() {
@@ -1019,9 +1022,9 @@ class ProjectSchemaAccessorsIntegrationTest : AbstractPluginIntegrationTest() {
             """
         )
 
-        executer.expectDocumentedDeprecationWarning("The Project.getConvention() method has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions")
-        executer.expectDocumentedDeprecationWarning("The org.gradle.api.plugins.Convention type has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions")
-
+        (1..2).forEach {
+            executer.expectDocumentedDeprecationWarning("The org.gradle.api.plugins.Convention type has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions")
+        }
         build("help")
     }
 
@@ -1093,8 +1096,9 @@ class ProjectSchemaAccessorsIntegrationTest : AbstractPluginIntegrationTest() {
         )
 
         executer.beforeExecute {
-            it.expectDocumentedDeprecationWarning("The Project.getConvention() method has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions")
-            it.expectDocumentedDeprecationWarning("The org.gradle.api.plugins.Convention type has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions")
+            (1..2).forEach { _ ->
+                it.expectDocumentedDeprecationWarning("The org.gradle.api.plugins.Convention type has been deprecated. This is scheduled to be removed in Gradle 9.0. Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_8.html#deprecated_access_to_conventions")
+            }
         }
 
         assertThat(
@@ -1317,9 +1321,8 @@ class ProjectSchemaAccessorsIntegrationTest : AbstractPluginIntegrationTest() {
     }
 
     @Test
+    @Requires(UnitTestPreconditions.Jdk11OrLater::class)
     fun `can access project extension of nested type compiled to Java 11`() {
-
-        assumeJava11OrHigher()
 
         withFolders {
             "buildSrc" {

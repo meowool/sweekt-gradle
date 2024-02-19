@@ -16,7 +16,6 @@
 
 package org.gradle.caching.internal.controller
 
-import org.gradle.api.Action
 import org.gradle.api.internal.StartParameterInternal
 import org.gradle.api.internal.cache.StringInterner
 import org.gradle.api.internal.file.temp.TemporaryFileProvider
@@ -35,23 +34,25 @@ import org.gradle.caching.internal.packaging.BuildCacheEntryPacker
 import org.gradle.caching.internal.services.DefaultBuildCacheControllerFactory
 import org.gradle.caching.local.DirectoryBuildCache
 import org.gradle.caching.local.internal.LocalBuildCacheService
+import org.gradle.internal.hash.HashCode
+import org.gradle.internal.operations.NoOpBuildOperationProgressEventEmitter
 import org.gradle.internal.operations.TestBuildOperationExecutor
-import org.gradle.internal.vfs.FileSystemAccess
 import org.gradle.util.Path
 import org.gradle.util.TestUtil
 import spock.lang.Specification
+
+import java.util.function.Consumer
 
 class DefaultBuildCacheControllerFactoryTest extends Specification {
 
     def buildCacheEnabled = true
     def buildOperationExecuter = new TestBuildOperationExecutor()
+    def buildOperationProgressEmitter = new NoOpBuildOperationProgressEventEmitter()
     def config = new DefaultBuildCacheConfiguration(TestUtil.instantiatorFactory().inject(), [
         new DefaultBuildCacheServiceRegistration(DirectoryBuildCache, TestDirectoryBuildCacheServiceFactory),
         new DefaultBuildCacheServiceRegistration(TestOtherRemoteBuildCache, TestOtherRemoteBuildCacheServiceFactory),
         new DefaultBuildCacheServiceRegistration(TestRemoteBuildCache, TestRemoteBuildCacheServiceFactory),
     ])
-
-    boolean emitDebugLogging
 
     private DefaultBuildCacheController createController() {
         createController(DefaultBuildCacheController)
@@ -61,11 +62,10 @@ class DefaultBuildCacheControllerFactoryTest extends Specification {
         def controller = new DefaultBuildCacheControllerFactory(
             Stub(StartParameterInternal) {
                 isBuildCacheEnabled() >> buildCacheEnabled
-                isBuildCacheDebugLogging() >> emitDebugLogging
             },
             buildOperationExecuter,
+            buildOperationProgressEmitter,
             Stub(OriginMetadataFactory),
-            Stub(FileSystemAccess),
             Stub(StringInterner),
             Stub(TemporaryFileProvider),
             Stub(BuildCacheEntryPacker)
@@ -140,19 +140,6 @@ class DefaultBuildCacheControllerFactoryTest extends Specification {
             local.type == "directory"
             remote.type == "remote"
         }
-    }
-
-    def "respects debug logging setting - #setting"() {
-        when:
-        emitDebugLogging = setting
-        config.remote(TestRemoteBuildCache)
-        def c = createController()
-
-        then:
-        c.emitDebugLogging == setting
-
-        where:
-        setting << [true, false]
     }
 
     def 'when caching is disabled no services are created'() {
@@ -233,8 +220,7 @@ class DefaultBuildCacheControllerFactoryTest extends Specification {
         }
 
         @Override
-        void loadLocally(BuildCacheKey key, Action<? super File> reader) {
-
+        void loadLocally(BuildCacheKey key, Consumer<? super File> reader) {
         }
 
         @Override
@@ -244,7 +230,6 @@ class DefaultBuildCacheControllerFactoryTest extends Specification {
 
         @Override
         void store(BuildCacheKey key, BuildCacheEntryWriter writer) throws BuildCacheException {
-
         }
 
         @Override
@@ -253,8 +238,7 @@ class DefaultBuildCacheControllerFactoryTest extends Specification {
         }
 
         @Override
-        void withTempFile(BuildCacheKey key, Action<? super File> action) {
-
+        void withTempFile(HashCode key, Consumer<? super File> action) {
         }
     }
 }

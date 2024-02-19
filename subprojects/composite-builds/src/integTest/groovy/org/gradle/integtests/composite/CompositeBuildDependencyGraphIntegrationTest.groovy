@@ -265,6 +265,7 @@ class CompositeBuildDependencyGraphIntegrationTest extends AbstractCompositeBuil
                 implementation "org.test:buildB:1.0"
             }
         """
+        createDirs("buildB", "buildB/b1", "buildB/b1/b11")
         buildB.settingsFile << """
             include ':b1:b11'
         """
@@ -582,6 +583,7 @@ class CompositeBuildDependencyGraphIntegrationTest extends AbstractCompositeBuil
         given:
         buildB
         def buildC = multiProjectBuild("buildC", ['c1', 'c2']);
+        createDirs("buildC", "buildC/nested", "buildC/nested/c1")
         buildC.settingsFile << """
             include ':nested:c1'
         """
@@ -695,8 +697,8 @@ class CompositeBuildDependencyGraphIntegrationTest extends AbstractCompositeBuil
         checkDependenciesFails()
 
         then:
-        failure.assertHasCause("No matching configuration of project :buildC was found. The consumer was configured to find a library for use during runtime, compatible with Java ${JavaVersion.current().majorVersion}, packaged as a jar, preferably optimized for standard JVMs, and its dependencies declared externally but:\n" +
-            "  - None of the consumable configurations have attributes.")
+        failure.assertHasCause("No matching variant of project :buildC was found. The consumer was configured to find a library for use during runtime, compatible with Java ${JavaVersion.current().majorVersion}, packaged as a jar, preferably optimized for standard JVMs, and its dependencies declared externally but:\n" +
+            "  - None of the variants have attributes.")
     }
 
     public static final REPOSITORY_HINT = repositoryHint("Maven POM")
@@ -748,7 +750,7 @@ class CompositeBuildDependencyGraphIntegrationTest extends AbstractCompositeBuil
         failure.assertHasCause("Could not resolve all task dependencies for configuration ':buildC:buildInputs'.")
         failure.assertHasCause("""Could not find org.test:test:1.2.
 Searched in the following locations:
-  - ${m.pom.file.toURL()}
+  - ${m.pom.file.displayUri}
 Required by:
     project :buildC""")
         failure.assertHasResolutions(REPOSITORY_HINT,
@@ -787,6 +789,7 @@ Required by:
             }
         """
         includedBuilds = [empty]
+        createDirs("buildA", "buildA/subproject1")
         buildA.settingsFile << """
             include('subproject1')
             $includeRootStatement

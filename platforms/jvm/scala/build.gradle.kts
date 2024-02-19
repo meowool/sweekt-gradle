@@ -4,6 +4,12 @@ plugins {
 
 description = "Plugins for building Scala code with Gradle."
 
+errorprone {
+    disabledChecks.addAll(
+        "UnusedMethod", // 2 occurrences
+    )
+}
+
 dependencies {
     implementation(project(":base-services"))
     implementation(project(":logging"))
@@ -22,6 +28,7 @@ dependencies {
     implementation(project(":language-java"))
     implementation(project(":plugins"))
     implementation(project(":plugins-java"))
+    implementation(project(":plugins-java-base"))
     implementation(project(":reporting"))
     implementation(project(":dependency-management"))
     implementation(project(":process-services"))
@@ -43,7 +50,6 @@ dependencies {
     testImplementation(libs.slf4jApi)
     testImplementation(libs.commonsIo)
     testImplementation(testFixtures(project(":core")))
-    testImplementation(testFixtures(project(":plugins")))
     testImplementation(testFixtures(project(":plugins-java")))
     testImplementation(testFixtures(project(":language-jvm")))
     testImplementation(testFixtures(project(":language-java")))

@@ -19,6 +19,7 @@ package org.gradle.internal.classpath;
 import org.gradle.api.file.RelativePath;
 import org.gradle.internal.Pair;
 import org.gradle.internal.classloader.TransformingClassLoader;
+import org.gradle.internal.classpath.transforms.ClassTransform;
 import org.gradle.internal.classpath.types.InstrumentingTypeRegistry;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -31,7 +32,7 @@ import java.util.Collections;
 import java.util.function.Predicate;
 
 public class TestInstrumentedClassLoader extends TransformingClassLoader {
-    private final CachedClasspathTransformer.Transform transform;
+    private final ClassTransform transform;
     private final Predicate<String> shouldLoadTransformedClass;
     private final ClassLoader source;
     private final InstrumentingTypeRegistry typeRegistry;
@@ -39,7 +40,7 @@ public class TestInstrumentedClassLoader extends TransformingClassLoader {
     TestInstrumentedClassLoader(
         ClassLoader source,
         Predicate<String> shouldLoadTransformedClass,
-        CachedClasspathTransformer.Transform transform,
+        ClassTransform transform,
         InstrumentingTypeRegistry typeRegistry
     ) {
         super("test-transformed-loader", source, Collections.emptyList());
@@ -97,7 +98,7 @@ public class TestInstrumentedClassLoader extends TransformingClassLoader {
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         Pair<RelativePath, ClassVisitor> pathAndVisitor;
         try {
-            pathAndVisitor = transform.apply(classEntry, writer, new ClassData(originalReader, typeRegistry));
+            pathAndVisitor = transform.apply(classEntry, writer, new ClassData(originalReader, bytes, typeRegistry));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

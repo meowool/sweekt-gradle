@@ -2,7 +2,13 @@ plugins {
     id("gradlebuild.distribution.api-java")
 }
 
-description = "Services and utilities needed by Gradle Enterprise plugin"
+description = "Services and utilities needed by Develocity plugin"
+
+errorprone {
+    disabledChecks.addAll(
+        "SameNameButDifferent", // 4 occurrences
+    )
+}
 
 dependencies {
     api(project(":base-services"))
